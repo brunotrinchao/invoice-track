@@ -1,0 +1,76 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Card {
+  id            String    @id @default(uuid())
+  bankName      String    @map("bank_name")
+  brand         String
+  last4Digits   String    @map("last_4_digits")
+  colorGradient String?   @map("color_gradient")
+  pdfPassword   String?   @map("pdf_password")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  invoices      Invoice[]
+
+  @@unique([bankName, brand, last4Digits])
+  @@map("cards")
+}
+
+model Invoice {
+  id              String        @id @default(uuid())
+  cardId          String        @map("card_id")
+  card            Card          @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  monthYear       String        @map("month_year") // Formato "YYYY-MM" (Ex: "2026-09")
+  totalAmount     Decimal       @default(0.00) @map("total_amount") @db.Decimal(10, 2)
+  purchasesAmount Decimal       @default(0.00) @map("purchases_amount") @db.Decimal(10, 2)
+  fineAmount      Decimal       @default(0.00) @map("fine_amount") @db.Decimal(10, 2)
+  interestAmount  Decimal       @default(0.00) @map("interest_amount") @db.Decimal(10, 2)
+  taxesAmount     Decimal       @default(0.00) @map("taxes_amount") @db.Decimal(10, 2)
+  feesAmount      Decimal       @default(0.00) @map("fees_amount") @db.Decimal(10, 2)
+  creditsAmount   Decimal       @default(0.00) @map("credits_amount") @db.Decimal(10, 2)
+  declaredAmount  Decimal?      @map("declared_amount") @db.Decimal(10, 2) // Total a pagar declarado no boleto/PDF
+  isPaid          Boolean       @default(false) @map("is_paid")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  items           InvoiceItem[]
+  fees            InvoiceFee[]
+
+  @@unique([cardId, monthYear])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id                 String    @id @default(uuid())
+  invoiceId          String    @map("invoice_id")
+  invoice            Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description        String
+  originalAmount     Decimal   @map("original_amount") @db.Decimal(10, 2)
+  currentInstallment Int       @default(1) @map("current_installment")
+  totalInstallments  Int       @default(1) @map("total_installments")
+  itemType           String    @default("PURCHASE") @map("item_type") // 'PURCHASE' | 'FEE' | 'FINE' | 'INTEREST' | 'TAX' | 'CREDIT'
+  purchaseDate       DateTime? @map("purchase_date")
+  extractedBy        String    @default("ai") @map("extracted_by") // 'ai' | 'regex'
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model InvoiceFee {
+  id          String   @id @default(uuid())
+  invoiceId   String   @map("invoice_id")
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  feeType     String   @map("fee_type") // 'FINE' | 'INTEREST' | 'TAX' | 'FEE' | 'OTHER'
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([invoiceId])
+  @@map("invoice_fees")
+}

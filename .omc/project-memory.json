@@ -1,0 +1,488 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1789059087863,
+  "projectRoot": "/home/brunotrinchao/Documentos/Bruno/Invoice-Track",
+  "techStack": {
+    "languages": [
+      {
+        "name": "JavaScript/TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "package.json"
+        ]
+      },
+      {
+        "name": "TypeScript",
+        "version": null,
+        "confidence": "high",
+        "markers": [
+          "tsconfig.json"
+        ]
+      }
+    ],
+    "frameworks": [
+      {
+        "name": "express",
+        "version": "4.21.1",
+        "category": "backend"
+      },
+      {
+        "name": "react",
+        "version": "18.3.1",
+        "category": "frontend"
+      },
+      {
+        "name": "react-dom",
+        "version": "18.3.1",
+        "category": "frontend"
+      },
+      {
+        "name": "vite",
+        "version": "5.4.11",
+        "category": "build"
+      }
+    ],
+    "packageManager": "npm",
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": "npm run build",
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": "npm run dev",
+    "scripts": {
+      "dev:backend": "tsx watch server/index.ts",
+      "dev:frontend": "vite",
+      "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+      "build": "tsc && vite build",
+      "db:migrate": "prisma migrate dev --name init",
+      "db:generate": "prisma generate",
+      "db:push": "prisma db push",
+      "db:refresh": "prisma db push --force-reset",
+      "db:migrate:reset": "prisma migrate reset --force"
+    }
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": "type-based"
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [
+      "src"
+    ],
+    "gitBranches": null
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "dist": {
+      "path": "dist",
+      "purpose": "Distribution/build output",
+      "fileCount": 1,
+      "lastAccessed": 1789059087851,
+      "keyFiles": [
+        "index.html"
+      ]
+    },
+    "prisma": {
+      "path": "prisma",
+      "purpose": null,
+      "fileCount": 1,
+      "lastAccessed": 1789059087852,
+      "keyFiles": [
+        "schema.prisma"
+      ]
+    },
+    "server": {
+      "path": "server",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1789059087858,
+      "keyFiles": [
+        "db.ts",
+        "index.ts",
+        "test_parser.ts"
+      ]
+    },
+    "src": {
+      "path": "src",
+      "purpose": "Source code",
+      "fileCount": 3,
+      "lastAccessed": 1789059087860,
+      "keyFiles": [
+        "App.tsx",
+        "index.css",
+        "main.tsx"
+      ]
+    },
+    "dist/assets": {
+      "path": "dist/assets",
+      "purpose": "Static assets",
+      "fileCount": 2,
+      "lastAccessed": 1789059087861,
+      "keyFiles": [
+        "index-C0HOlYtt.css",
+        "index-C7PPPR51.js"
+      ]
+    },
+    "server/routes": {
+      "path": "server/routes",
+      "purpose": "Route handlers",
+      "fileCount": 5,
+      "lastAccessed": 1789059087862,
+      "keyFiles": [
+        "cards.ts",
+        "confirm.ts",
+        "invoices.ts"
+      ]
+    },
+    "server/services": {
+      "path": "server/services",
+      "purpose": "Business logic services",
+      "fileCount": 4,
+      "lastAccessed": 1789059087862,
+      "keyFiles": [
+        "aiExtractor.ts",
+        "financialEngine.ts",
+        "pdfParser.ts"
+      ]
+    },
+    "server/tests": {
+      "path": "server/tests",
+      "purpose": "Test files",
+      "fileCount": 2,
+      "lastAccessed": 1789059087862,
+      "keyFiles": [
+        "RunScannerTest.ts",
+        "ScannerTest.ts"
+      ]
+    },
+    "src/components": {
+      "path": "src/components",
+      "purpose": "UI components",
+      "fileCount": 8,
+      "lastAccessed": 1789059087862,
+      "keyFiles": [
+        "ConfirmationModal.tsx",
+        "CreditCardWidget.tsx",
+        "Header.tsx"
+      ]
+    },
+    "src/types": {
+      "path": "src/types",
+      "purpose": "Type definitions",
+      "fileCount": 1,
+      "lastAccessed": 1789059087862,
+      "keyFiles": [
+        "index.ts"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "src/App.tsx",
+      "accessCount": 19,
+      "lastAccessed": 1789079075703,
+      "type": "file"
+    },
+    {
+      "path": "server/services/financialEngine.ts",
+      "accessCount": 14,
+      "lastAccessed": 1789071438316,
+      "type": "file"
+    },
+    {
+      "path": "src/components/MultiSelectCardFilter.tsx",
+      "accessCount": 14,
+      "lastAccessed": 1789077546612,
+      "type": "file"
+    },
+    {
+      "path": "server/services/aiExtractor.ts",
+      "accessCount": 12,
+      "lastAccessed": 1789070052557,
+      "type": "file"
+    },
+    {
+      "path": "src/components/ConfirmationModal.tsx",
+      "accessCount": 7,
+      "lastAccessed": 1789075251394,
+      "type": "file"
+    },
+    {
+      "path": "server/routes/reports.ts",
+      "accessCount": 6,
+      "lastAccessed": 1789073342725,
+      "type": "file"
+    },
+    {
+      "path": "server/routes/confirm.ts",
+      "accessCount": 5,
+      "lastAccessed": 1789072981270,
+      "type": "file"
+    },
+    {
+      "path": "src/components/CreditCardWidget.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1789078823817,
+      "type": "file"
+    },
+    {
+      "path": "src/components/DateRangePicker.tsx",
+      "accessCount": 5,
+      "lastAccessed": 1789078918291,
+      "type": "file"
+    },
+    {
+      "path": "server/services/parsers/MercadoPagoParser.ts",
+      "accessCount": 4,
+      "lastAccessed": 1789063003648,
+      "type": "file"
+    },
+    {
+      "path": "src/components/InvoiceManagement.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1789075439712,
+      "type": "file"
+    },
+    {
+      "path": "src/components/PieCharts.tsx",
+      "accessCount": 4,
+      "lastAccessed": 1789077618454,
+      "type": "file"
+    },
+    {
+      "path": "server/services/parsers/InterParser.ts",
+      "accessCount": 3,
+      "lastAccessed": 1789065432136,
+      "type": "file"
+    },
+    {
+      "path": ".context/agents/documentation-writer.md",
+      "accessCount": 3,
+      "lastAccessed": 1789068900401,
+      "type": "file"
+    },
+    {
+      "path": "src/components/PredictabilityChart.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1789074893616,
+      "type": "file"
+    },
+    {
+      "path": "src/components/PdfUploader.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1789074977255,
+      "type": "file"
+    },
+    {
+      "path": "src/index.css",
+      "accessCount": 3,
+      "lastAccessed": 1789077926695,
+      "type": "file"
+    },
+    {
+      "path": "src/main.tsx",
+      "accessCount": 3,
+      "lastAccessed": 1789079038018,
+      "type": "file"
+    },
+    {
+      "path": "prisma/schema.prisma",
+      "accessCount": 2,
+      "lastAccessed": 1789063051544,
+      "type": "file"
+    },
+    {
+      "path": "server/tests/parsers.test.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789066353422,
+      "type": "file"
+    },
+    {
+      "path": "server/services/parsers/AtacadaoParser.ts",
+      "accessCount": 2,
+      "lastAccessed": 1789068583113,
+      "type": "file"
+    },
+    {
+      "path": ".context/config/sensors.json",
+      "accessCount": 2,
+      "lastAccessed": 1789068762521,
+      "type": "file"
+    },
+    {
+      "path": ".context/agents/test-writer.md",
+      "accessCount": 2,
+      "lastAccessed": 1789068999066,
+      "type": "file"
+    },
+    {
+      "path": ".context/skills/commit-message/SKILL.md",
+      "accessCount": 2,
+      "lastAccessed": 1789069122379,
+      "type": "file"
+    },
+    {
+      "path": ".context/skills/documentation/SKILL.md",
+      "accessCount": 2,
+      "lastAccessed": 1789069132507,
+      "type": "file"
+    },
+    {
+      "path": ".context/skills/code-review/SKILL.md",
+      "accessCount": 2,
+      "lastAccessed": 1789069201195,
+      "type": "file"
+    },
+    {
+      "path": "src/components/Header.tsx",
+      "accessCount": 2,
+      "lastAccessed": 1789074740682,
+      "type": "file"
+    },
+    {
+      "path": "server/services/parsers/InvoiceParserInterface.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789062982421,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
+      "accessCount": 1,
+      "lastAccessed": 1789068493312,
+      "type": "file"
+    },
+    {
+      "path": ".context/docs/project-overview.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068743353,
+      "type": "file"
+    },
+    {
+      "path": ".context/docs/development-workflow.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068750366,
+      "type": "file"
+    },
+    {
+      "path": ".context/docs/testing-strategy.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068754552,
+      "type": "file"
+    },
+    {
+      "path": ".context/docs/tooling.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068760544,
+      "type": "file"
+    },
+    {
+      "path": ".context/agents/bug-fixer.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068801455,
+      "type": "file"
+    },
+    {
+      "path": "Invoice-Track/.context/agents/code-reviewer.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068803566,
+      "type": "file"
+    },
+    {
+      "path": ".context/agents/code-reviewer.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068849213,
+      "type": "file"
+    },
+    {
+      "path": ".context/agents/feature-developer.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068950423,
+      "type": "file"
+    },
+    {
+      "path": ".context/agents/performance-optimizer.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068968127,
+      "type": "file"
+    },
+    {
+      "path": ".context/agents/refactoring-specialist.md",
+      "accessCount": 1,
+      "lastAccessed": 1789068986574,
+      "type": "file"
+    },
+    {
+      "path": ".context/skills/api-design/SKILL.md",
+      "accessCount": 1,
+      "lastAccessed": 1789069037718,
+      "type": "file"
+    },
+    {
+      "path": ".context/skills/bug-investigation/SKILL.md",
+      "accessCount": 1,
+      "lastAccessed": 1789069042027,
+      "type": "file"
+    },
+    {
+      "path": "junk",
+      "accessCount": 1,
+      "lastAccessed": 1789069061310,
+      "type": "file"
+    },
+    {
+      "path": ".context/skills/pr-review/SKILL.md",
+      "accessCount": 1,
+      "lastAccessed": 1789069091587,
+      "type": "file"
+    },
+    {
+      "path": ".context/skills/refactoring/SKILL.md",
+      "accessCount": 1,
+      "lastAccessed": 1789069159945,
+      "type": "file"
+    },
+    {
+      "path": ".context/skills/test-generation/SKILL.md",
+      "accessCount": 1,
+      "lastAccessed": 1789069163643,
+      "type": "file"
+    },
+    {
+      "path": ".claude/session_state.md",
+      "accessCount": 1,
+      "lastAccessed": 1789070179280,
+      "type": "file"
+    },
+    {
+      "path": "src/components/InvoiceList.tsx",
+      "accessCount": 1,
+      "lastAccessed": 1789073633766,
+      "type": "file"
+    },
+    {
+      "path": "src/types/index.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789073655922,
+      "type": "file"
+    },
+    {
+      "path": "index.html",
+      "accessCount": 1,
+      "lastAccessed": 1789074541842,
+      "type": "file"
+    },
+    {
+      "path": "src/utils/bankColors.ts",
+      "accessCount": 1,
+      "lastAccessed": 1789078616096,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

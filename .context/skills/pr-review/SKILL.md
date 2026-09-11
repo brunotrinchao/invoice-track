@@ -1,0 +1,56 @@
+---
+type: skill
+name: Pr Review
+description: Review pull requests against team standards and best practices. Use when Reviewing a pull request before merge, Providing feedback on proposed changes, or Validating PR meets project standards
+skillSlug: pr-review
+phases: [R, V]
+generated: 2026-09-10
+status: filled
+scaffoldVersion: "2.0.0"
+---
+
+# PR Review
+
+## Workflow
+
+1. Ler objetivo da mudança (spec/conversa) antes do diff
+2. `npm run build` limpo — gate mínimo
+3. Revisar por prioridade: cálculo financeiro > parsers > rotas > UI
+4. Novo parser: `InvoiceParserStrategy` + registro em `InvoiceParserFactory`
+5. Extração: fallback regex↔IA intacto
+6. React: imutabilidade, keys estáveis
+7. Docs `.context/` atualizadas se comportamento mudou
+8. Veredito: approve / request changes / comment, com severidades
+
+## Examples
+
+**Feedback estruturado:**
+```
+Request changes:
+
+1. [Blocker] financialEngine.ts:156 — soma sem arredondamento,
+   comparar com "108.61000000000001 ~ boleto 1987.88" repro conhecido
+2. [Warning] Novo parser não registrado em InvoiceParserFactory
+3. [Suggestion] errMsg duplicado — extrair para util compartilhado
+
+Cálculo corrido + repro executado → approve.
+```
+
+**Approve:**
+```
+Looks good — build limpo, fallback regex intacto, novo parser segue Strategy.
+Validado com script de repro em server/tests/.
+```
+
+## Quality Bar
+
+- Objetivo da mudança antes do diff
+- Severidades explícitas (blocker/warning/suggestion)
+- file:linha em cada finding
+- Fallback regex verificado em mudanças de extração
+- Docs sincronizadas com comportamento
+
+## Resource Strategy
+
+- Sem recursos extras — checklist embutida
+- Repro scripts em `server/tests/` servem de referência de validação

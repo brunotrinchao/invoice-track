@@ -1,0 +1,17 @@
+{
+  "agents": [
+    {
+      "agent_id": "a9ff73a4c24c79647",
+      "agent_type": "frontend-developer",
+      "started_at": "2026-09-10T22:04:20.975Z",
+      "parent_mode": "none",
+      "status": "completed",
+      "completed_at": "2026-09-10T22:26:47.085Z",
+      "duration_ms": 1346110
+    }
+  ],
+  "total_spawned": 3,
+  "total_completed": 72,
+  "total_failed": 0,
+  "last_updated": "2026-09-10T22:55:27.264Z"
+}

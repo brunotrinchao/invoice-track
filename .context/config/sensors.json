@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "generatedAt": "2026-09-10T19:24:02.995Z",
+  "source": "manual",
+  "stack": {
+    "primaryLanguage": "typescript",
+    "languages": [
+      "javascript",
+      "typescript"
+    ],
+    "frameworks": [
+      "express",
+      "react",
+      "prisma"
+    ],
+    "buildTools": [
+      "vite",
+      "tsc",
+      "docker-compose"
+    ],
+    "testFrameworks": [],
+    "packageManager": "npm"
+  },
+  "sensors": [
+    {
+      "id": "build",
+      "name": "Build",
+      "description": "Type-check com tsc e build do frontend (vite build)",
+      "severity": "critical",
+      "command": "npm run build",
+      "script": "build"
+    },
+    {
+      "id": "prisma-validate",
+      "name": "Prisma Validate",
+      "description": "Valida schema.prisma sem tocar no banco",
+      "severity": "warning",
+      "command": "npx prisma validate",
+      "script": null
+    }
+  ]
+}

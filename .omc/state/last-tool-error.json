@@ -1,0 +1,7 @@
+{
+  "tool_name": "Bash",
+  "tool_input_preview": "{\"command\":\"/home/brunotrinchao/.claude/squeez/bin/squeez wrap 'ls -la /proc/1199923/fd/1 2>/dev/null; ps -o cmd= -p 1199923; echo \\\"---try find vite log---\\\"; find /tmp -name \\\"*.log\\\" -newer /tmp/in...",
+  "error": "Exit code 1\n---try find vite log---",
+  "timestamp": "2026-09-10T22:39:36.734Z",
+  "retry_count": 1
+}
