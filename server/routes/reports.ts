@@ -164,3 +164,164 @@ reportsRouter.get('/predictability', async (req, res) => {
   }
 });
 
+// Relatório de compras recorrentes: materializado (isRecurring=true) + projetado (active en rango sin fatura)
+reportsRouter.get('/recurring', async (req, res) => {
+  try {
+    const { cardIds, from, to } = req.query;
+
+    // Filtro por múltiplos cartões (se fornecido)
+    let selectedCardIds: string[] = [];
+    if (cardIds && typeof cardIds === 'string' && cardIds.trim().length > 0) {
+      selectedCardIds = cardIds.split(',').map((s) => s.trim());
+    }
+
+    // Filtro por período (YYYY-MM)
+    let periodFrom: string | null = null;
+    let periodTo: string | null = null;
+    if (from && typeof from === 'string' && /^\d{4}-\d{2}$/.test(from)) periodFrom = from;
+    if (to && typeof to === 'string' && /^\d{4}-\d{2}$/.test(to)) periodTo = to;
+
+    const cardFilter: any = {};
+    if (selectedCardIds.length > 0) {
+      cardFilter.cardId = { in: selectedCardIds };
+    }
+
+    // --- Materializado: items marcados como recorrentes en faturas existentes ---
+    const materializedItems = await prisma.invoiceItem.findMany({
+      where: {
+        isRecurring: true,
+        ...cardFilter,
+        ...(periodFrom || periodTo
+          ? { invoice: { monthYear: { gte: periodFrom || undefined, lte: periodTo || undefined } } }
+          : {}),
+      },
+      include: {
+        invoice: { select: { id: true, monthYear: true, isPaid: true, cardId: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    // --- Projetado: recorrentes activos en el rango sin fatura materializada ---
+    const recurringFilter: any = {
+      active: true,
+      ...(selectedCardIds.length > 0 ? { cardId: { in: selectedCardIds } } : {}),
+    };
+    if (periodFrom) {
+      recurringFilter.startMonthYear = { lte: periodTo || '9999-12' };
+    }
+    if (periodTo) {
+      recurringFilter.OR = [
+        { endMonthYear: null },
+        { endMonthYear: { gte: periodFrom || '0000-01' } },
+      ];
+    }
+    const recurrings = await prisma.recurringItem.findMany({
+      where: recurringFilter,
+      include: {
+        card: { select: { id: true, bankName: true, brand: true, last4Digits: true } },
+      },
+    });
+
+    // Meses del rango (o 12 meses desde el actual si no hay filtro)
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const months: string[] = [];
+    if (periodFrom && periodTo) {
+      let cursor = periodFrom;
+      while (cursor <= periodTo) {
+        months.push(cursor);
+        cursor = addMonthsToYearMonth(cursor, 1);
+      }
+    } else {
+      for (let i = -2; i <= 9; i++) {
+        months.push(addMonthsToYearMonth(currentMonth, i));
+      }
+    }
+
+    const monthSet = new Set(months);
+    const materializedByMonth: Record<string, any[]> = {};
+    for (const item of materializedItems) {
+      if (!monthSet.has(item.invoice.monthYear)) continue;
+      (materializedByMonth[item.invoice.monthYear] = materializedByMonth[item.invoice.monthYear] || []).push({
+        id: item.id,
+        description: item.description,
+        amount: Number(item.originalAmount),
+        recurringItemId: item.recurringItemId,
+        invoiceId: item.invoice.id,
+        cardId: item.invoice.cardId,
+        isPaid: item.invoice.isPaid,
+        projected: false,
+      });
+    }
+
+    const materializedIds = new Set(
+      materializedItems.filter((i) => i.recurringItemId).map((i) => i.recurringItemId!)
+    );
+
+    // Faturas existentes por card+mes para saber qué proyectar
+    const existingInvoices = await prisma.invoice.findMany({
+      where: {
+        ...(selectedCardIds.length > 0 ? { cardId: { in: selectedCardIds } } : {}),
+        monthYear: { in: months },
+      },
+      select: { cardId: true, monthYear: true },
+    });
+    const existingKeySet = new Set(existingInvoices.map((inv) => `${inv.cardId}|${inv.monthYear}`));
+
+    const projectedByMonth: Record<string, any[]> = {};
+    for (const rec of recurrings) {
+      if (materializedIds.has(rec.id)) continue; // ya materializado, no duplicar
+      let cursor = rec.startMonthYear;
+      while (cursor <= (rec.endMonthYear || '9999-12') && (!periodTo || cursor <= periodTo)) {
+        if (monthSet.has(cursor)) {
+          const key = `${rec.cardId}|${cursor}`;
+          // Proyectar solo si no hay fatura materializada para ese mes (la fatura real ya lo cubre)
+          if (!existingKeySet.has(key)) {
+            (projectedByMonth[cursor] = projectedByMonth[cursor] || []).push({
+              id: `proj_${rec.id}_${cursor}`,
+              description: rec.description,
+              amount: Number(rec.amount),
+              recurringItemId: rec.id,
+              invoiceId: null,
+              cardId: rec.cardId,
+              isPaid: false,
+              projected: true,
+            });
+          }
+        }
+        cursor = addMonthsToYearMonth(cursor, 1);
+      }
+    }
+
+    const summary = {
+      totalMaterialized: materializedItems.length,
+      totalProjected: Object.values(projectedByMonth).reduce((sum, arr) => sum + arr.length, 0),
+      activeRecurrings: recurrings.length,
+      projectedMonthlyAmount: Object.values(projectedByMonth).reduce(
+        (sum, arr) => sum + arr.reduce((s, item) => s + item.amount, 0),
+        0
+      ),
+    };
+
+    const monthsResult = months.map((m) => ({
+      monthYear: m,
+      total: Math.round(
+        ((materializedByMonth[m] || []).reduce((s, item) => s + item.amount, 0) +
+          (projectedByMonth[m] || []).reduce((s, item) => s + item.amount, 0)) * 100
+      ) / 100,
+      materialized: materializedByMonth[m] || [],
+      projected: projectedByMonth[m] || [],
+      items: [...(materializedByMonth[m] || []), ...(projectedByMonth[m] || [])],
+    }));
+
+    return res.json({
+      success: true,
+      months: monthsResult,
+      summary,
+      selectedCardIds,
+    });
+  } catch (error: any) {
+    console.error('Erro no relatório de recorrentes:', error);
+    return res.status(500).json({ error: 'Erro ao gerar relatório de recorrentes: ' + error.message });
+  }
+});
+

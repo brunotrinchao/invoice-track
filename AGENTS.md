@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Language
+- **User communication**: Always communicate, explain concepts, and respond to the user in Portuguese (pt-BR).
+- **Codebase & Artifacts**: Write all code, comments, variable names, functions, tests, commit messages, and documentation exclusively in English.
+
 ## Dev environment tips
 - Install dependencies with `npm install` before running scaffolds.
 - Use `npm run dev` for the interactive TypeScript session that powers local experimentation.

@@ -10,6 +10,7 @@ import { confirmRouter } from './routes/confirm.js';
 import { cardsRouter } from './routes/cards.js';
 import { invoicesRouter } from './routes/invoices.js';
 import { reportsRouter } from './routes/reports.js';
+import { recurringRouter } from './routes/recurring.js';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use('/api/confirm-invoice', confirmRouter);
 app.use('/api/cards', cardsRouter);
 app.use('/api/invoices', invoicesRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/recurring', recurringRouter);
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -1,5 +1,10 @@
 import { prisma } from '../db.js';
 import { ParsedCardTransactions, ExtractedInvoiceItem } from './parsers/InvoiceParserInterface.js';
+import { addMonthsToYearMonth, classifyItemType, recalculateCardTotals } from './cardTotals.js';
+import { applyRecurringToInvoice } from './recurringService.js';
+
+// Re-export para compatibilidade con rutas existentes (reports.ts)
+export { addMonthsToYearMonth, classifyItemType };
 
 const CARD_GRADIENTS: Record<string, string> = {
   Nubank: 'from-purple-700 via-purple-900 to-slate-900',
@@ -15,47 +20,6 @@ const CARD_GRADIENTS: Record<string, string> = {
 
 export function getCardGradient(bankName: string): string {
   return CARD_GRADIENTS[bankName] || 'from-blue-600 via-slate-800 to-slate-900';
-}
-
-export function classifyItemType(description: string, amount: number): 'PURCHASE' | 'FEE' | 'FINE' | 'INTEREST' | 'TAX' | 'CREDIT' {
-  if (amount < 0 || /ESTORNO|REEMBOLSO|CASHBACK|CRÉDITO|CREDITO|DESCONTO|DEVOLUC|DEVOLUÇ|INVESTBACK|AJUSTE/i.test(description)) {
-    return 'CREDIT';
-  }
-  const upper = (description || '').toUpperCase();
-  if (upper.includes('MULTA')) {
-    return 'FINE';
-  }
-  // IOF primero: "IOF do rotativo" es TAX, no INTEREST
-  if (upper.includes('IOF') || upper.includes('IMPOSTO') || upper.includes('TRIBUTO')) {
-    return 'TAX';
-  }
-  if (upper.includes('JUROS') || upper.includes('MORA') || upper.includes('ROTATIVO') || upper.includes('ENCARGO') || upper.includes('ENCARGOS') || upper.includes('REFINANCIAMENTO')) {
-    return 'INTEREST';
-  }
-  if (
-    upper.includes('TARIFA') ||
-    upper.includes('ANUIDADE') ||
-    upper.includes('TAXA') ||
-    upper.includes('SEGURO') ||
-    upper.includes('PROTEÇÃO') ||
-    upper.includes('PROTECAO') ||
-    upper.includes('SERVIÇO') ||
-    upper.includes('SERVICO') ||
-    upper.includes('COBRANÇA') ||
-    upper.includes('COBRANCA')
-  ) {
-    return 'FEE';
-  }
-  return 'PURCHASE';
-}
-
-export function addMonthsToYearMonth(yearMonth: string, monthDelta: number): string {
-  const [yearStr, monthStr] = yearMonth.split('-');
-  const date = new Date(parseInt(yearStr, 10), parseInt(monthStr, 10) - 1, 1);
-  date.setMonth(date.getMonth() + monthDelta);
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
 }
 
 export interface ConfirmInvoicePayload {
@@ -248,72 +212,14 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
         }
       }
 
+      // 3.5 Aplicar recorrentes ativos ao mês referenciado ANTES do recálculo de totals
+      await applyRecurringToInvoice(card.id, monthReferenced, tx);
+
       // 4. Recalcular o valor total e o desmembramento das faturas deste cartão no MySQL
-      const allInvoices = await tx.invoice.findMany({
-        where: { cardId: card.id },
-        include: { items: true, fees: true },
+      await recalculateCardTotals(card.id, tx, {
+        monthReferenced,
+        totalAmountOverride: cardData.totalAmount,
       });
-
-      for (const inv of allInvoices) {
-        let purchasesSum = 0;
-        let fineSum = 0;
-        let interestSum = 0;
-        let taxesSum = 0;
-        let feesSum = 0;
-        let creditsSum = 0;
-
-        for (const it of inv.items) {
-          const val = Number(it.originalAmount);
-          const type = (it as any).itemType || classifyItemType(it.description, val);
-          if (type === 'FINE') fineSum += val;
-          else if (type === 'INTEREST') interestSum += val;
-          else if (type === 'TAX') taxesSum += val;
-          else if (type === 'FEE') feesSum += val;
-          else if (type === 'CREDIT') creditsSum += val;
-          else purchasesSum += val;
-        }
-
-        // Incluir quaisquer taxas salvas em invoice_fees que eventualmente não estejam em items
-        if (inv.fees && inv.fees.length > 0) {
-          for (const fee of inv.fees) {
-            const fVal = Number(fee.amount);
-            const alreadyInItems = inv.items.some(
-              (it) => it.description === fee.description && Math.abs(Number(it.originalAmount) - fVal) < 0.001
-            );
-            if (!alreadyInItems) {
-              const fType = fee.feeType || classifyItemType(fee.description, fVal);
-              if (fType === 'FINE') fineSum += fVal;
-              else if (fType === 'INTEREST') interestSum += fVal;
-              else if (fType === 'TAX') taxesSum += fVal;
-              else feesSum += fVal;
-            }
-          }
-        }
-
-        // O valor total da fatura é a soma dos itens + soma das taxas/multas/juros/impostos + créditos
-        const calculatedTotal = purchasesSum + fineSum + interestSum + taxesSum + feesSum + creditsSum;
-
-        // Para a fatura do mês de referência, usar el total líquido enviado pelo modal
-        // (cardData.totalAmount = compras + taxas - créditos seleccionados).
-        // Para faturas proyectadas (parcelas), mantener el recálculo desde items.
-        const finalTotal =
-          inv.monthYear === monthReferenced && cardData.totalAmount !== undefined
-            ? cardData.totalAmount
-            : Math.round(calculatedTotal * 100) / 100;
-
-        await tx.invoice.update({
-          where: { id: inv.id },
-          data: {
-            totalAmount: Math.round(finalTotal * 100) / 100,
-            purchasesAmount: Math.round(purchasesSum * 100) / 100,
-            fineAmount: Math.round(fineSum * 100) / 100,
-            interestAmount: Math.round(interestSum * 100) / 100,
-            taxesAmount: Math.round(taxesSum * 100) / 100,
-            feesAmount: Math.round(feesSum * 100) / 100,
-            creditsAmount: Math.round(creditsSum * 100) / 100,
-          },
-        });
-      }
 
       processedCardsResult.push({
         card,

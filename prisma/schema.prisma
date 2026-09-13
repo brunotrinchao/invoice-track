@@ -15,8 +15,9 @@ model Card {
   colorGradient String?   @map("color_gradient")
   pdfPassword   String?   @map("pdf_password")
   createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
   invoices      Invoice[]
+  recurringItems RecurringItem[]
 
   @@unique([bankName, brand, last4Digits])
   @@map("cards")
@@ -54,12 +55,33 @@ model InvoiceItem {
   currentInstallment Int       @default(1) @map("current_installment")
   totalInstallments  Int       @default(1) @map("total_installments")
   itemType           String    @default("PURCHASE") @map("item_type") // 'PURCHASE' | 'FEE' | 'FINE' | 'INTEREST' | 'TAX' | 'CREDIT'
-  purchaseDate       DateTime? @map("purchase_date")
-  extractedBy        String    @default("ai") @map("extracted_by") // 'ai' | 'regex'
-  createdAt          DateTime  @default(now()) @map("created_at")
+  purchaseDate       DateTime?      @map("purchase_date")
+  extractedBy        String         @default("ai") @map("extracted_by") // 'ai' | 'regex'
+  isRecurring        Boolean        @default(false) @map("is_recurring")
+  recurringItemId    String?        @map("recurring_item_id")
+  recurringItem      RecurringItem? @relation(fields: [recurringItemId], references: [id], onDelete: SetNull)
+  createdAt          DateTime       @default(now()) @map("created_at")
 
   @@index([invoiceId])
+  @@index([recurringItemId])
   @@map("invoice_items")
+}
+
+model RecurringItem {
+  id             String       @id @default(uuid())
+  cardId         String       @map("card_id")
+  card           Card         @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  description    String
+  amount         Decimal      @map("amount") @db.Decimal(10, 2)
+  startMonthYear String       @map("start_month_year") // "YYYY-MM" — primeira fatura onde aparece
+  endMonthYear   String?      @map("end_month_year") // null = para sempre
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+  items          InvoiceItem[]
+
+  @@index([cardId])
+  @@map("recurring_items")
 }
 
 model InvoiceFee {
