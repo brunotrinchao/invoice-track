@@ -5,7 +5,10 @@
   "main": "server/index.js",
   "type": "module",
   "scripts": {
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "tsx watch server/index.ts",
+    "dev:frontend": "npm --prefix app run dev",
+    "build": "npm --prefix app run build",
     "db:migrate": "prisma migrate dev --name init",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -15,6 +18,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.21.0",
     "@prisma/client": "^5.22.0",
+    "concurrently": "^10.0.5",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",

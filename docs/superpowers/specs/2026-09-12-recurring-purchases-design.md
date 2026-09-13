@@ -334,3 +334,10 @@ app/
 ```
 
 Nota: agentes com modelo roto (sonnet/opus) requieren `model: sonnet` explícito ou fallback a `oh-my-claudecode:executor` com `model: haiku`.
+
+## 8. Idioma obrigatório
+
+- **Comunicación com usuário**: toda comunicação, explicación de conceptos e respostas ao usuário DEVE ser em português (pt-BR). Obrigatório em todas as etapas e agentes.
+- **Código e artefatos técnicos**: código, comentários, nomes de variáveis, tests, commit messages e documentação técnica em inglês (convenção do repo, ver AGENTS.md).
+- **Copy de produto (UI)**: labels, tooltips, mensagens de error e confirmaciones em pt-BR.
+- **Specs e docs de produto**: este documento e futuros design docs em pt-BR.
