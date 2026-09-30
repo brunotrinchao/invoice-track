@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastScanned": 1789059087863,
+  "lastScanned": 1790701518279,
   "projectRoot": "/home/brunotrinchao/Documentos/Bruno/Invoice-Track",
   "techStack": {
     "languages": [
@@ -26,21 +26,6 @@
         "name": "express",
         "version": "4.21.1",
         "category": "backend"
-      },
-      {
-        "name": "react",
-        "version": "18.3.1",
-        "category": "frontend"
-      },
-      {
-        "name": "react-dom",
-        "version": "18.3.1",
-        "category": "frontend"
-      },
-      {
-        "name": "vite",
-        "version": "5.4.11",
-        "category": "build"
       }
     ],
     "packageManager": "npm",
@@ -48,14 +33,18 @@
   },
   "build": {
     "buildCommand": "npm run build",
-    "testCommand": null,
+    "testCommand": "npm test",
     "lintCommand": null,
     "devCommand": "npm run dev",
     "scripts": {
-      "dev:backend": "tsx watch server/index.ts",
-      "dev:frontend": "vite",
       "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
-      "build": "tsc && vite build",
+      "dev:backend": "tsx watch server/index.ts",
+      "dev:frontend": "npm --prefix app run dev",
+      "build": "npm --prefix app run generate",
+      "test": "npm run test:backend && npm run test:frontend",
+      "test:backend": "tsx server/tests/recurring.test.ts && tsx server/tests/parsers.test.ts",
+      "test:frontend": "npm --prefix app test",
+      "typecheck": "tsc --noEmit",
       "db:migrate": "prisma migrate dev --name init",
       "db:generate": "prisma generate",
       "db:push": "prisma db push",
@@ -67,32 +56,53 @@
     "namingStyle": null,
     "importStyle": null,
     "testPattern": null,
-    "fileOrganization": "type-based"
+    "fileOrganization": null
   },
   "structure": {
     "isMonorepo": false,
     "workspaces": [],
     "mainDirectories": [
-      "src"
+      "app",
+      "docs"
     ],
     "gitBranches": null
   },
   "customNotes": [],
   "directoryMap": {
+    "app": {
+      "path": "app",
+      "purpose": "Application code",
+      "fileCount": 7,
+      "lastAccessed": 1790701518263,
+      "keyFiles": [
+        "app.vue",
+        "nuxt.config.ts",
+        "package-lock.json",
+        "package.json",
+        "tsconfig.json"
+      ]
+    },
     "dist": {
       "path": "dist",
       "purpose": "Distribution/build output",
       "fileCount": 1,
-      "lastAccessed": 1789059087851,
+      "lastAccessed": 1790701518263,
       "keyFiles": [
         "index.html"
       ]
+    },
+    "docs": {
+      "path": "docs",
+      "purpose": "Documentation",
+      "fileCount": 0,
+      "lastAccessed": 1790701518270,
+      "keyFiles": []
     },
     "prisma": {
       "path": "prisma",
       "purpose": null,
       "fileCount": 1,
-      "lastAccessed": 1789059087852,
+      "lastAccessed": 1790701518272,
       "keyFiles": [
         "schema.prisma"
       ]
@@ -101,39 +111,49 @@
       "path": "server",
       "purpose": null,
       "fileCount": 3,
-      "lastAccessed": 1789059087858,
+      "lastAccessed": 1790701518275,
       "keyFiles": [
         "db.ts",
         "index.ts",
         "test_parser.ts"
       ]
     },
-    "src": {
-      "path": "src",
-      "purpose": "Source code",
-      "fileCount": 3,
-      "lastAccessed": 1789059087860,
-      "keyFiles": [
-        "App.tsx",
-        "index.css",
-        "main.tsx"
-      ]
+    "app/assets": {
+      "path": "app/assets",
+      "purpose": "Static assets",
+      "fileCount": 0,
+      "lastAccessed": 1790701518276,
+      "keyFiles": []
+    },
+    "app/components": {
+      "path": "app/components",
+      "purpose": "UI components",
+      "fileCount": 0,
+      "lastAccessed": 1790701518276,
+      "keyFiles": []
+    },
+    "app/node_modules": {
+      "path": "app/node_modules",
+      "purpose": "Dependencies",
+      "fileCount": 1,
+      "lastAccessed": 1790701518278,
+      "keyFiles": []
     },
     "dist/assets": {
       "path": "dist/assets",
       "purpose": "Static assets",
       "fileCount": 2,
-      "lastAccessed": 1789059087861,
+      "lastAccessed": 1790701518278,
       "keyFiles": [
-        "index-C0HOlYtt.css",
-        "index-C7PPPR51.js"
+        "index-CcI1iOfO.css",
+        "index-DXXCKRpp.js"
       ]
     },
     "server/routes": {
       "path": "server/routes",
       "purpose": "Route handlers",
-      "fileCount": 5,
-      "lastAccessed": 1789059087862,
+      "fileCount": 6,
+      "lastAccessed": 1790701518278,
       "keyFiles": [
         "cards.ts",
         "confirm.ts",
@@ -143,344 +163,325 @@
     "server/services": {
       "path": "server/services",
       "purpose": "Business logic services",
-      "fileCount": 4,
-      "lastAccessed": 1789059087862,
+      "fileCount": 7,
+      "lastAccessed": 1790701518279,
       "keyFiles": [
         "aiExtractor.ts",
-        "financialEngine.ts",
-        "pdfParser.ts"
+        "bankUtils.ts",
+        "cardTotals.ts"
       ]
     },
     "server/tests": {
       "path": "server/tests",
       "purpose": "Test files",
-      "fileCount": 2,
-      "lastAccessed": 1789059087862,
+      "fileCount": 4,
+      "lastAccessed": 1790701518279,
       "keyFiles": [
         "RunScannerTest.ts",
-        "ScannerTest.ts"
-      ]
-    },
-    "src/components": {
-      "path": "src/components",
-      "purpose": "UI components",
-      "fileCount": 8,
-      "lastAccessed": 1789059087862,
-      "keyFiles": [
-        "ConfirmationModal.tsx",
-        "CreditCardWidget.tsx",
-        "Header.tsx"
-      ]
-    },
-    "src/types": {
-      "path": "src/types",
-      "purpose": "Type definitions",
-      "fileCount": 1,
-      "lastAccessed": 1789059087862,
-      "keyFiles": [
-        "index.ts"
+        "ScannerTest.ts",
+        "parsers.test.ts"
       ]
     }
   },
   "hotPaths": [
     {
-      "path": "src/App.tsx",
-      "accessCount": 19,
-      "lastAccessed": 1789079075703,
-      "type": "file"
-    },
-    {
-      "path": "server/services/financialEngine.ts",
-      "accessCount": 14,
-      "lastAccessed": 1789071438316,
-      "type": "file"
-    },
-    {
-      "path": "src/components/MultiSelectCardFilter.tsx",
-      "accessCount": 14,
-      "lastAccessed": 1789077546612,
+      "path": "server/routes/recurring.ts",
+      "accessCount": 27,
+      "lastAccessed": 1790707708820,
       "type": "file"
     },
     {
       "path": "server/services/aiExtractor.ts",
-      "accessCount": 12,
-      "lastAccessed": 1789070052557,
+      "accessCount": 27,
+      "lastAccessed": 1790768751088,
       "type": "file"
     },
     {
-      "path": "src/components/ConfirmationModal.tsx",
-      "accessCount": 7,
-      "lastAccessed": 1789075251394,
+      "path": "app/components/upload/ConfirmationModal.vue",
+      "accessCount": 26,
+      "lastAccessed": 1790709959621,
+      "type": "file"
+    },
+    {
+      "path": "app/components/invoices/InvoiceDetailModal.vue",
+      "accessCount": 18,
+      "lastAccessed": 1790768330485,
       "type": "file"
     },
     {
       "path": "server/routes/reports.ts",
+      "accessCount": 15,
+      "lastAccessed": 1790707384375,
+      "type": "file"
+    },
+    {
+      "path": "server/routes/invoices.ts",
+      "accessCount": 15,
+      "lastAccessed": 1790708559118,
+      "type": "file"
+    },
+    {
+      "path": "server/services/financialEngine.ts",
+      "accessCount": 11,
+      "lastAccessed": 1790709915951,
+      "type": "file"
+    },
+    {
+      "path": "server/services/pdfParser.ts",
+      "accessCount": 11,
+      "lastAccessed": 1790768775277,
+      "type": "file"
+    },
+    {
+      "path": "server/routes/parse.ts",
+      "accessCount": 9,
+      "lastAccessed": 1790707285470,
+      "type": "file"
+    },
+    {
+      "path": "package.json",
       "accessCount": 6,
-      "lastAccessed": 1789073342725,
+      "lastAccessed": 1790708818807,
+      "type": "file"
+    },
+    {
+      "path": "app/components/dashboard/PredictabilityChart.vue",
+      "accessCount": 6,
+      "lastAccessed": 1790709280451,
+      "type": "file"
+    },
+    {
+      "path": "server/tests/RunScannerTest.ts",
+      "accessCount": 5,
+      "lastAccessed": 1790708465881,
       "type": "file"
     },
     {
       "path": "server/routes/confirm.ts",
       "accessCount": 5,
-      "lastAccessed": 1789072981270,
+      "lastAccessed": 1790709927511,
       "type": "file"
     },
     {
-      "path": "src/components/CreditCardWidget.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1789078823817,
-      "type": "file"
-    },
-    {
-      "path": "src/components/DateRangePicker.tsx",
-      "accessCount": 5,
-      "lastAccessed": 1789078918291,
-      "type": "file"
-    },
-    {
-      "path": "server/services/parsers/MercadoPagoParser.ts",
+      "path": "server/services/regexExtractor.ts",
       "accessCount": 4,
-      "lastAccessed": 1789063003648,
+      "lastAccessed": 1790707640493,
       "type": "file"
     },
     {
-      "path": "src/components/InvoiceManagement.tsx",
+      "path": "server/services/parsers/InvoiceParserFactory.ts",
       "accessCount": 4,
-      "lastAccessed": 1789075439712,
+      "lastAccessed": 1790707749579,
       "type": "file"
     },
     {
-      "path": "src/components/PieCharts.tsx",
+      "path": "server/index.ts",
       "accessCount": 4,
-      "lastAccessed": 1789077618454,
+      "lastAccessed": 1790707751000,
       "type": "file"
     },
     {
-      "path": "server/services/parsers/InterParser.ts",
+      "path": "app/app.vue",
+      "accessCount": 4,
+      "lastAccessed": 1790708220416,
+      "type": "file"
+    },
+    {
+      "path": "app/components/invoices/InvoiceItemDetailDrawer.vue",
+      "accessCount": 4,
+      "lastAccessed": 1790709183395,
+      "type": "file"
+    },
+    {
+      "path": "app/package.json",
       "accessCount": 3,
-      "lastAccessed": 1789065432136,
+      "lastAccessed": 1790706923082,
       "type": "file"
     },
     {
-      "path": ".context/agents/documentation-writer.md",
+      "path": "app/pages/import.vue",
       "accessCount": 3,
-      "lastAccessed": 1789068900401,
+      "lastAccessed": 1790707872246,
       "type": "file"
     },
     {
-      "path": "src/components/PredictabilityChart.tsx",
+      "path": "app/composables/useRecurring.ts",
       "accessCount": 3,
-      "lastAccessed": 1789074893616,
+      "lastAccessed": 1790707883772,
       "type": "file"
     },
     {
-      "path": "src/components/PdfUploader.tsx",
+      "path": "app/tests/setup.ts",
       "accessCount": 3,
-      "lastAccessed": 1789074977255,
+      "lastAccessed": 1790708017965,
       "type": "file"
     },
     {
-      "path": "src/index.css",
+      "path": "app/components/dashboard/BankBarChart.vue",
       "accessCount": 3,
-      "lastAccessed": 1789077926695,
+      "lastAccessed": 1790708168557,
       "type": "file"
     },
     {
-      "path": "src/main.tsx",
+      "path": "app/components/dashboard/RecurringChart.vue",
       "accessCount": 3,
-      "lastAccessed": 1789079038018,
+      "lastAccessed": 1790708170575,
       "type": "file"
     },
     {
-      "path": "prisma/schema.prisma",
+      "path": "app/components/dashboard/ReportStats.vue",
+      "accessCount": 3,
+      "lastAccessed": 1790708171976,
+      "type": "file"
+    },
+    {
+      "path": "app/components/dashboard/PieCharts.vue",
+      "accessCount": 3,
+      "lastAccessed": 1790708173398,
+      "type": "file"
+    },
+    {
+      "path": "app/components/upload/InvoiceDiffModal.vue",
+      "accessCount": 3,
+      "lastAccessed": 1790708176392,
+      "type": "file"
+    },
+    {
+      "path": "app/components/invoices/InvoiceDetail.vue",
+      "accessCount": 3,
+      "lastAccessed": 1790708179425,
+      "type": "file"
+    },
+    {
+      "path": "app/components/invoices/recurring/SetRecurringDrawer.vue",
+      "accessCount": 3,
+      "lastAccessed": 1790708182370,
+      "type": "file"
+    },
+    {
+      "path": "app/components/invoices/InvoiceManagement.vue",
+      "accessCount": 3,
+      "lastAccessed": 1790708183884,
+      "type": "file"
+    },
+    {
+      "path": "app/components/invoices/InvoiceItemRow.vue",
+      "accessCount": 3,
+      "lastAccessed": 1790708185406,
+      "type": "file"
+    },
+    {
+      "path": "app/pages/invoices/index.vue",
+      "accessCount": 3,
+      "lastAccessed": 1790708186907,
+      "type": "file"
+    },
+    {
+      "path": "app/tests/money.test.ts",
       "accessCount": 2,
-      "lastAccessed": 1789063051544,
+      "lastAccessed": 1790706890112,
       "type": "file"
     },
     {
-      "path": "server/tests/parsers.test.ts",
+      "path": "server/utils/errors.ts",
       "accessCount": 2,
-      "lastAccessed": 1789066353422,
+      "lastAccessed": 1790706959691,
       "type": "file"
     },
     {
-      "path": "server/services/parsers/AtacadaoParser.ts",
+      "path": "server/utils/logger.ts",
       "accessCount": 2,
-      "lastAccessed": 1789068583113,
+      "lastAccessed": 1790707013260,
       "type": "file"
     },
     {
-      "path": ".context/config/sensors.json",
+      "path": "server/routes/cards.ts",
       "accessCount": 2,
-      "lastAccessed": 1789068762521,
+      "lastAccessed": 1790707059037,
       "type": "file"
     },
     {
-      "path": ".context/agents/test-writer.md",
+      "path": "app/assets/css/main.css",
       "accessCount": 2,
-      "lastAccessed": 1789068999066,
+      "lastAccessed": 1790768372094,
       "type": "file"
     },
     {
-      "path": ".context/skills/commit-message/SKILL.md",
-      "accessCount": 2,
-      "lastAccessed": 1789069122379,
-      "type": "file"
-    },
-    {
-      "path": ".context/skills/documentation/SKILL.md",
-      "accessCount": 2,
-      "lastAccessed": 1789069132507,
-      "type": "file"
-    },
-    {
-      "path": ".context/skills/code-review/SKILL.md",
-      "accessCount": 2,
-      "lastAccessed": 1789069201195,
-      "type": "file"
-    },
-    {
-      "path": "src/components/Header.tsx",
-      "accessCount": 2,
-      "lastAccessed": 1789074740682,
-      "type": "file"
-    },
-    {
-      "path": "server/services/parsers/InvoiceParserInterface.ts",
+      "path": "app/utils/money.ts",
       "accessCount": 1,
-      "lastAccessed": 1789062982421,
+      "lastAccessed": 1790706799811,
       "type": "file"
     },
     {
-      "path": "package.json",
+      "path": "app/stores/invoiceStore.ts",
       "accessCount": 1,
-      "lastAccessed": 1789068493312,
+      "lastAccessed": 1790707773793,
       "type": "file"
     },
     {
-      "path": ".context/docs/project-overview.md",
+      "path": "app/composables/useInvoices.ts",
       "accessCount": 1,
-      "lastAccessed": 1789068743353,
+      "lastAccessed": 1790707775846,
       "type": "file"
     },
     {
-      "path": ".context/docs/development-workflow.md",
+      "path": "app/stores/recurringStore.ts",
       "accessCount": 1,
-      "lastAccessed": 1789068750366,
+      "lastAccessed": 1790707775962,
       "type": "file"
     },
     {
-      "path": ".context/docs/testing-strategy.md",
+      "path": "server/services/recurringService.ts",
       "accessCount": 1,
-      "lastAccessed": 1789068754552,
+      "lastAccessed": 1790707824951,
       "type": "file"
     },
     {
-      "path": ".context/docs/tooling.md",
+      "path": "app/plugins/api.ts",
       "accessCount": 1,
-      "lastAccessed": 1789068760544,
+      "lastAccessed": 1790708201354,
       "type": "file"
     },
     {
-      "path": ".context/agents/bug-fixer.md",
+      "path": "app/app.config.ts",
       "accessCount": 1,
-      "lastAccessed": 1789068801455,
+      "lastAccessed": 1790708222043,
       "type": "file"
     },
     {
-      "path": "Invoice-Track/.context/agents/code-reviewer.md",
+      "path": "server/tests/financialEngine.test.ts",
       "accessCount": 1,
-      "lastAccessed": 1789068803566,
+      "lastAccessed": 1790708493662,
       "type": "file"
     },
     {
-      "path": ".context/agents/code-reviewer.md",
+      "path": "server/tests/aiExtractor.test.ts",
       "accessCount": 1,
-      "lastAccessed": 1789068849213,
+      "lastAccessed": 1790708812942,
       "type": "file"
     },
     {
-      "path": ".context/agents/feature-developer.md",
+      "path": "app/components/ui/BankLogo.vue",
       "accessCount": 1,
-      "lastAccessed": 1789068950423,
+      "lastAccessed": 1790709144401,
       "type": "file"
     },
     {
-      "path": ".context/agents/performance-optimizer.md",
+      "path": "app/components/ui/CardBrandLogo.vue",
       "accessCount": 1,
-      "lastAccessed": 1789068968127,
+      "lastAccessed": 1790709144591,
       "type": "file"
     },
     {
-      "path": ".context/agents/refactoring-specialist.md",
+      "path": "app/components/cards/CreditCardWidget.vue",
       "accessCount": 1,
-      "lastAccessed": 1789068986574,
+      "lastAccessed": 1790709277234,
       "type": "file"
     },
     {
-      "path": ".context/skills/api-design/SKILL.md",
+      "path": "app/components/ui/AppModal.vue",
       "accessCount": 1,
-      "lastAccessed": 1789069037718,
-      "type": "file"
-    },
-    {
-      "path": ".context/skills/bug-investigation/SKILL.md",
-      "accessCount": 1,
-      "lastAccessed": 1789069042027,
-      "type": "file"
-    },
-    {
-      "path": "junk",
-      "accessCount": 1,
-      "lastAccessed": 1789069061310,
-      "type": "file"
-    },
-    {
-      "path": ".context/skills/pr-review/SKILL.md",
-      "accessCount": 1,
-      "lastAccessed": 1789069091587,
-      "type": "file"
-    },
-    {
-      "path": ".context/skills/refactoring/SKILL.md",
-      "accessCount": 1,
-      "lastAccessed": 1789069159945,
-      "type": "file"
-    },
-    {
-      "path": ".context/skills/test-generation/SKILL.md",
-      "accessCount": 1,
-      "lastAccessed": 1789069163643,
-      "type": "file"
-    },
-    {
-      "path": ".claude/session_state.md",
-      "accessCount": 1,
-      "lastAccessed": 1789070179280,
-      "type": "file"
-    },
-    {
-      "path": "src/components/InvoiceList.tsx",
-      "accessCount": 1,
-      "lastAccessed": 1789073633766,
-      "type": "file"
-    },
-    {
-      "path": "src/types/index.ts",
-      "accessCount": 1,
-      "lastAccessed": 1789073655922,
-      "type": "file"
-    },
-    {
-      "path": "index.html",
-      "accessCount": 1,
-      "lastAccessed": 1789074541842,
-      "type": "file"
-    },
-    {
-      "path": "src/utils/bankColors.ts",
-      "accessCount": 1,
-      "lastAccessed": 1789078616096,
+      "lastAccessed": 1790709694300,
       "type": "file"
     }
   ],

@@ -1,17 +1,22 @@
 {
   "agents": [
     {
-      "agent_id": "a9ff73a4c24c79647",
-      "agent_type": "frontend-developer",
-      "started_at": "2026-09-10T22:04:20.975Z",
+      "agent_id": "a957dd36f14855a00",
+      "agent_type": "Explore",
+      "started_at": "2026-09-29T17:18:34.508Z",
       "parent_mode": "none",
-      "status": "completed",
-      "completed_at": "2026-09-10T22:26:47.085Z",
-      "duration_ms": 1346110
+      "status": "running"
+    },
+    {
+      "agent_id": "a87b140611f282334",
+      "agent_type": "Explore",
+      "started_at": "2026-09-29T17:18:59.446Z",
+      "parent_mode": "none",
+      "status": "running"
     }
   ],
-  "total_spawned": 3,
-  "total_completed": 72,
+  "total_spawned": 2,
+  "total_completed": 0,
   "total_failed": 0,
-  "last_updated": "2026-09-10T22:55:27.264Z"
+  "last_updated": "2026-09-30T12:33:27.918Z"
 }

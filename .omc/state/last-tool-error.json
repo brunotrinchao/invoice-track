@@ -1,7 +1,7 @@
 {
   "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"/home/brunotrinchao/.claude/squeez/bin/squeez wrap 'ls -la /proc/1199923/fd/1 2>/dev/null; ps -o cmd= -p 1199923; echo \\\"---try find vite log---\\\"; find /tmp -name \\\"*.log\\\" -newer /tmp/in...",
-  "error": "Exit code 1\n---try find vite log---",
-  "timestamp": "2026-09-10T22:39:36.734Z",
+  "tool_input_preview": "{\"command\":\"/home/brunotrinchao/.claude/squeez/bin/squeez wrap 'cd /home/brunotrinchao/Documentos/Bruno/Invoice-Track/app && npm i date-fns 2>&1 | tail -1 && ls node_modules/date-fns/locale/index.d.ts...",
+  "error": "Exit code 2\n[squeez: HIGH CACHE RATIO — cache_read 231K vs I/O 0K (~528×) — context is very large; consider /compact or trimming CLAUDE.md]\nls: cannot access 'node_modules/date-fns/locale/index.d.ts': No such file or directory\nRun `npm audit` for details.",
+  "timestamp": "2026-09-30T12:24:05.685Z",
   "retry_count": 1
 }
