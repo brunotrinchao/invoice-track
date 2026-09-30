@@ -15,15 +15,18 @@ export class InterInvoiceParser implements InvoiceParserStrategy {
 
     // Mês de Referência (Mês de consumo anterior ao Vencimento)
     let monthReferenced = new Date().toISOString().slice(0, 7);
+    let dueDate: string | undefined = undefined;
     const dateMatch =
       text.match(/Data de Vencimento\s*(\d{2})\/(\d{2})\/(\d{4})/i) ||
       text.match(/VENCIMENTO\s*(\d{2})\/(\d{2})\/(\d{4})/i) ||
       text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
 
     if (dateMatch && dateMatch[3] && dateMatch[3].length === 4) {
-      const year = parseInt(dateMatch[3], 10);
+      const day = parseInt(dateMatch[1], 10);
       const month = parseInt(dateMatch[2], 10);
+      const year = parseInt(dateMatch[3], 10);
       monthReferenced = getPreviousMonthReference(year, month);
+      dueDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
     // Mapa de itens agrupados por cartão (dígitos finais)
@@ -131,6 +134,7 @@ export class InterInvoiceParser implements InvoiceParserStrategy {
 
     return {
       monthReferenced,
+      dueDate,
       cards,
       extractedBy: 'regex',
     };

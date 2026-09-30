@@ -3,7 +3,7 @@
     <label
       v-if="label"
       :for="inputId"
-      class="mb-1 block text-xs font-medium text-slate-400"
+      class="mb-1 block text-xs font-extrabold text-muted"
     >{{ label }}</label>
     <input
       :id="inputId"
@@ -46,5 +46,5 @@ function onChange(event: Event) {
   emit('change', event)
 }
 
-const inputClasses = 'w-full rounded-xl border border-dark-border bg-dark-card px-3.5 py-2.5 text-sm text-slate-200 placeholder:text-slate-500 shadow-inner transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:opacity-50'
+const inputClasses = 'w-full rounded-xl border border-accented bg-elevated px-3.5 py-2.5 text-sm font-extrabold text-default placeholder:text-slate-500 shadow-xs transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:opacity-50'
 </script>

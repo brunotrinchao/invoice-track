@@ -12,10 +12,10 @@
 
 <script setup lang="ts">
 const variants = {
-  primary: 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-600/30 hover:brightness-110',
-  secondary: 'bg-dark-card border border-dark-border text-slate-200 hover:border-brand-500/50',
-  danger: 'bg-gradient-to-r from-rose-600 to-red-500 text-white hover:brightness-110',
-  ghost: 'bg-transparent text-slate-300 hover:bg-white/5',
+  primary: 'bg-gradient-to-r from-brand-600 to-brand-500 text-white shadow-lg shadow-brand-600/30 hover:brightness-110 font-extrabold',
+  secondary: 'bg-elevated border border-accented text-default hover:bg-slate-50 dark:hover:bg-white/10 font-extrabold',
+  danger: 'bg-gradient-to-r from-rose-600 to-red-500 text-white hover:brightness-110 font-extrabold',
+  ghost: 'bg-transparent text-muted hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 font-extrabold',
 } as const
 
 const sizes = {
@@ -40,5 +40,5 @@ function onClick(event: MouseEvent) {
   if (!disabled && !loading) emit('click', event)
 }
 
-const classes = `${variants[variant]} ${sizes[size]} inline-flex items-center gap-2 font-medium transition-all duration-150 disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500`
+const classes = `${variants[variant]} ${sizes[size]} inline-flex cursor-pointer items-center gap-2 font-medium transition-[background-color,color,border-color,box-shadow,transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500`
 </script>

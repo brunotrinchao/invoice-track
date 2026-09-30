@@ -30,19 +30,26 @@ export class AtacadaoInvoiceParser implements InvoiceParserStrategy {
     }
 
     let monthReferenced = new Date().toISOString().slice(0, 7);
+    let dueDate: string | undefined = undefined;
     const dateMatch =
       text.match(/26\/(\d{2})\/(\d{4})/) ||
       text.match(/VENCIMENTO[\s\S]*?(\d{2})\/(\d{2})\/(\d{4})/i);
 
     if (dateMatch) {
+      let day = 26;
+      let month = 0;
+      let year = 0;
       if (dateMatch[2] && dateMatch[2].length === 4) {
-        const year = parseInt(dateMatch[2], 10);
-        const month = parseInt(dateMatch[1], 10);
-        monthReferenced = getPreviousMonthReference(year, month);
+        month = parseInt(dateMatch[1], 10);
+        year = parseInt(dateMatch[2], 10);
       } else if (dateMatch[3] && dateMatch[3].length === 4) {
-        const year = parseInt(dateMatch[3], 10);
-        const month = parseInt(dateMatch[2], 10);
+        day = parseInt(dateMatch[1], 10);
+        month = parseInt(dateMatch[2], 10);
+        year = parseInt(dateMatch[3], 10);
+      }
+      if (year && month) {
         monthReferenced = getPreviousMonthReference(year, month);
+        dueDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
     }
 
@@ -90,6 +97,7 @@ export class AtacadaoInvoiceParser implements InvoiceParserStrategy {
               totalInstallments,
               purchaseDate: dateStr,
               cardLast4: last4Digits,
+              itemType: totalInstallments > 1 ? 'PURCHASE' : undefined,
             });
           }
         }
@@ -110,6 +118,7 @@ export class AtacadaoInvoiceParser implements InvoiceParserStrategy {
 
     return {
       monthReferenced,
+      dueDate,
       cards,
       extractedBy: 'regex',
     };

@@ -3,7 +3,7 @@
     <label
       v-if="label"
       :for="selectId"
-      class="mb-1 block text-xs font-medium text-slate-400"
+      class="mb-1 block text-xs font-extrabold text-muted"
     >{{ label }}</label>
     <select
       :id="selectId"
@@ -16,11 +16,13 @@
         v-if="placeholder"
         value=""
         disabled
+        class="bg-elevated text-slate-500"
       >{{ placeholder }}</option>
       <option
         v-for="opt in options"
         :key="opt.value"
         :value="opt.value"
+        class="bg-elevated text-default font-extrabold"
       >{{ opt.label }}</option>
     </select>
   </div>
@@ -51,5 +53,5 @@ function onChange(event: Event) {
   emit('update:modelValue', (event.target as HTMLSelectElement).value)
 }
 
-const selectClasses = 'w-full rounded-xl border border-dark-border bg-dark-card px-3.5 py-2.5 text-sm text-slate-200 transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:opacity-50'
+const selectClasses = 'w-full rounded-xl border border-accented bg-elevated px-3.5 py-2.5 text-sm font-extrabold text-default transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 disabled:opacity-50'
 </script>

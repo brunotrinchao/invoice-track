@@ -1,93 +1,20 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import pdfParse from 'pdf-parse';
 import { ExtractedInvoiceResult, ParsedCardTransactions } from './parsers/InvoiceParserInterface.js';
+import { getErrorMessage, throwIfAiRateLimit, AiRateLimitError, parseAiRetryDelay } from '../utils/errors.js';
+import { logger } from '../utils/logger.js';
 
-export async function extractWithAI(pdfBuffer: Buffer, apiKey?: string, password?: string): Promise<ExtractedInvoiceResult | null> {
-  const key = apiKey || process.env.GEMINI_API_KEY;
-  if (!key) {
-    console.log('[AI Extractor] Nenhuma chave de API fornecida. Acionando Fallback Regex.');
-    return null;
-  }
-
-  try {
-    const options: any = {};
-    if (password) {
-      options.password = password;
-    }
-    const parsedPdf = await pdfParse(pdfBuffer, options);
-    const text = parsedPdf.text || '';
-    if (!text || text.trim().length === 0) {
-      return null;
-    }
-
-    const genAI = new GoogleGenerativeAI(key);
-    let model;
-    try {
-      model = genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: { responseMimeType: 'application/json' },
-      });
-    } catch {
-      model = genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash',
-        generationConfig: { responseMimeType: 'application/json' },
-      });
-    }
-
-    const prompt = `Você é um leitor especialista em faturas de cartão de crédito brasileiras.
-Analise o texto da fatura a seguir e extraia as informações estruturadas em JSON estrito.
+/**
+ * Núcleo do prompt de extração (compartilhado pelos dois modos de envio:
+ * PDF direto multimodal e texto extraído via pdf-parse).
+ */
+export const EXTRACTION_PROMPT_CORE = `Analise $SOURCE da fatura e extraia as informações estruturadas em JSON estrito.
 ATENÇÃO: Uma única fatura PDF pode conter mais de um cartão de crédito (ex: cartão principal + cartões adicionais). Agrupe as compras por cartão.
 
-GUIA DE PARTICULARIDADES POR BANCO E EMISSOR:
+$BANK_SECTIONS
 
-1. MERCADO PAGO / MERCADO LIVRE:
-   - Cartões são rotulados com mascaramento ex: Cartão Visa [************4422] ou [************2207].
-   - Extraia os 4 últimos dígitos ("4422", "2207"). NUNCA crie cartões falsos para anos (ex: '2025', '2026') ou 'Fatu' / 'Resumo'.
-   - Cada cartão possui seu total próprio impresso no PDF (ex: Total R$ 2.035,71). O "totalAmount" deve ser o total declarado da seção daquele cartão.
-   - Padrões de compras: "DD/MM | DESCRICAO | Parcela X de Y | R$ XX,XX" ou "DD/MM DESCRICAO X/Y R$ XX,XX".
-   - Nomes de lojas costumam iniciar com "MP *", "ML *", "PAG*", "MERCADOLIVRE". Mantenha a descrição limpa.
-
-2. NUBANK (NU PAGAMENTOS):
-   - Lançamentos sob a seção "Fatura Atual" ou "Lançamentos".
-   - Parcelas formatadas como "01/10" ou "PARCELA 1 DE 10" ou "(1/10)".
-   - "Pagamento recebido" ou "Pagamento de fatura" não são compras (são pagamentos/créditos da fatura anterior).
-
-3. ITAÚ / ITAÚCARD:
-   - Seções separadas por nome de titular e "•••• XXXX".
-   - Parcelas formatadas como "PARC 02/06" ou "PARCELA 02 DE 06".
-   - IOF internacional pode vir em linha própria ("IOF COMPRA INTERNACIONAL").
-
-4. BRADESCO / BRADESCARD:
-   - Identificados por "Cartão XXXX.XXXX.XXXX.1234".
-   - Totais marcados como "TOTAL DO CARTÃO R$ ...".
-   - Parcelas formatadas como "PARC 03/12" ou "03/12".
-
-5. SANTANDER:
-   - Agrupado por "Cartão Final 1234".
-   - Parcelas "PARC 02/10" ou "02 DE 10".
-
-6. BANCO INTER:
-   - Lançamentos com data DD/MM/YYYY ou DD/MM.
-   - Parcelas "PARCELA 02/05" ou "02/05".
-   - ATENÇÃO: O hífen '-' na coluna Beneficiário do Inter é um separador padrão, NUNCA considere como crédito.
-   - No Banco Inter, compras normais são valores positivos. Somente lançamentos com o sinal '+' antes do valor (ou palavras como Cashback, Estorno, Reembolso) são créditos (valor negativo).
-
-7. C6 BANK:
-   - Organizado por titular "•••• 1234".
-   - Parcelas "PARCELA 01 DE 03" ou "01/03".
-
-8. XP BANK / XP INVESTIMENTOS:
-   - Indicados com "•••• 1234". Créditos de Investback podem vir associados.
-
-9. PICPAY:
-   - Seção "Transações com o Cartão PicPay".
-   - Parcelas "PARCELA 01/02" ou "01 DE 02".
-
-10. BTG PACTUAL:
-    - Indicados com "•••• 1234". Subtotais por titular.
-
-REGRAS ESTREITAS DE EXTRAÇÃO:
-- "monthReferenced": Mês de referência em formato YYYY-MM correspondente ao mês de consumo da fatura (mês anterior ao vencimento). Exemplo: se a data de vencimento for em Setembro (10/09/2026), a fatura é do mês de Agosto e o "monthReferenced" DEVE SER "2026-08". Se o vencimento foi 17/08/2026 (Agosto), a fatura é de Julho e o "monthReferenced" DEVE SER "2026-07". Se o vencimento foi 10/01/2026 (Janeiro), o "monthReferenced" DEVE SER "2025-12".
+- "monthReferenced": Mês de referência em formato YYYY-MM correspondente ao mês de vencimento da fatura. Exemplo: se a data de vencimento for em Setembro (10/09/2026), o "monthReferenced" DEVE SER "2026-09". Se o vencimento foi 17/08/2026 (Agosto), o "monthReferenced" DEVE SER "2026-08". Se o vencimento foi 10/01/2026 (Janeiro), o "monthReferenced" DEVE SER "2026-01".
+- "dueDate": A DATA DE VENCIMENTO da fatura, exatamente como impressa no PDF, em formato YYYY-MM-DD. Procure por "Vencimento", "Data de vencimento", "Total a pagar até", "Pague até". Exemplo: "Vencimento: 17/08/2026" → "2026-08-17". NUNCA invente a data: se o PDF não informar vencimento, use null.
 - "totalAmount": total declarado da seção do cartão no PDF.
 - "currentInstallment" e "totalInstallments": se for parcela ex 3/5, use 3 e 5. Se à vista, use 1 e 1.
 - ITENS DE CRÉDITO, ESTORNOS, REEMBOLSOS E DESCONTOS:
@@ -98,11 +25,12 @@ REGRAS ESTREITAS DE EXTRAÇÃO:
 - MERCADO PAGO: a seção "Movimentações na fatura" contém taxas, multas, juros e créditos concedidos (ex: "IOF do rotativo", "Juros do rotativo", "Multa por atraso", "Juros de mora", "Crédito concedido"). Extraia TODOS esses lançamentos como items do cartão principal (créditos com amount negativo). NUNCA os omita.
 - "declaredInvoiceTotal": total a pagar do boleto/fatura (ex: "Total a pagar R$ 1.987,88" -> 1987.88). Devolva como número. Se não encontrar, use null.
 - NUNCA inclua como item: "PAGTO DEBITO AUTOMATICO", "PAGAMENTO DE FATURA", "PAGAMENTO DA FATURA", "PAGTO DEBITO", "DÉBITO AUTOMÁTICO" ou qualquer lançamento de pagamento/liquidação da fatura anterior. Esses são pagamentos, não compras nem créditos — OMITA-OS completamente.
-- NUNCA crie cartões falsos para anos (ex: '2025') ou resumos do boleto.
+- NUNCA crie cartões falsos para anos (ex: '2025') ou resumos do boleto.`;
 
-Retorne EXATAMENTE este objeto JSON:
+export const EXTRACTION_JSON_SCHEMA = `Retorne EXATAMENTE este objeto JSON:
 {
   "monthReferenced": "YYYY-MM",
+  "dueDate": "YYYY-MM-DD",
   "declaredInvoiceTotal": 0.0,
   "cards": [
     {
@@ -120,96 +48,279 @@ Retorne EXATAMENTE este objeto JSON:
       ]
     }
   ]
+}`;
+
+interface AiParsedItem {
+  description?: string;
+  amount?: number | string;
+  currentInstallment?: number | string;
+  totalInstallments?: number | string;
 }
+
+interface AiParsedJson {
+  monthReferenced?: string;
+  dueDate?: string | null;
+  declaredInvoiceTotal?: number | string;
+  cards?: {
+    bankName?: string;
+    brand?: string;
+    last4Digits?: string;
+    totalAmount?: number | string;
+    items?: AiParsedItem[];
+  }[];
+}
+
+/** Monta o prompt completo conforme a fonte + seções de banco dinâmicas. */
+export function buildExtractionPrompt(source?: string, bankSections?: string): string {
+  const sourceLabel = source ?? 'o documento PDF anexado';
+  const sections = bankSections?.trim()
+    ? bankSections
+    : '(Instruções por banco não cadastradas: extraia pelas convenções gerais abaixo.)';
+  return `Você é um leitor especialista em faturas de cartão de crédito brasileiras.
+Analise ${sourceLabel} e extraia as informações estruturadas em JSON estrito.
+${EXTRACTION_PROMPT_CORE.replace('$BANK_SECTIONS', sections)}
+
+${EXTRACTION_JSON_SCHEMA}`;
+}
+
+/**
+ * Modelos Gemini candidatas em ordem (novos projetos perdem acesso a versões
+ * antigas — API responde 404 "no longer available"; cai para o próximo).
+ */
+const MODEL_CANDIDATES = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+
+/**
+ * Chama generateContent tentando os modelos candidatas em sequência.
+ * Erro de senha → relança; 429/404 → tenta o próximo modelo (quota é
+ * por modelo no free tier); mantém o último 429 para a mensagem final.
+ */
+async function generateExtraction(genAI: GoogleGenerativeAI, parts: unknown): Promise<string> {
+  const attempts: string[] = [];
+  let lastRateLimit: { sec: number; msg: string } | null = null;
+
+  for (const modelName of MODEL_CANDIDATES) {
+    try {
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: { responseMimeType: 'application/json' },
+      });
+      const result = await model.generateContent(parts as Parameters<typeof model.generateContent>[0]);
+      return result.response.text();
+    } catch (error) {
+      throwIfPasswordError(error);
+      const msg = getErrorMessage(error);
+      if (/\b429\b|Too Many Requests|quota exceeded|exceeded your current quota/i.test(msg)) {
+        lastRateLimit = { sec: parseAiRetryDelay(msg), msg };
+        attempts.push(`${modelName}: cota excedida`);
+      } else if (/\b503\b|high demand|Service Unavailable/i.test(msg)) {
+        attempts.push(`${modelName}: sobrecarregado (503)`);
+      } else if (/\b404\b|no longer available/i.test(msg)) {
+        attempts.push(`${modelName}: indisponível para novos projetos`);
+      } else {
+        attempts.push(`${modelName}: ${msg.slice(0, 120)}`);
+      }
+    }
+  }
+
+  if (lastRateLimit) {
+    throw new AiRateLimitError(
+      `Cota esgotada nos modelos disponíveis: ${lastRateLimit.msg.slice(0, 200)}`,
+      lastRateLimit.sec,
+    );
+  }
+  throw new Error(`Nenhum modelo Gemini atendeu a chamada. ${attempts.join('; ')}`);
+}
+
+/** Converte a resposta JSON da IA no contrato de extração interno. */
+export function processAiJson(responseText: string, extractedBy: 'gemini' | 'gpt' = 'gemini'): ExtractedInvoiceResult | null {
+  const parsedJson = JSON.parse(responseText) as AiParsedJson;
+
+  if (parsedJson && Array.isArray(parsedJson.cards)) {
+    let processedCards: ParsedCardTransactions[] = parsedJson.cards.map((c) => ({
+      bankName: c.bankName || 'Cartão de Crédito',
+      brand: c.brand || 'Mastercard',
+      last4Digits: String(c.last4Digits || '0000').slice(-4),
+      totalAmount: parseFloat(String(c.totalAmount)) || 0,
+      items: Array.isArray(c.items)
+        ? c.items
+            .filter((item) => {
+              const d = String(item.description || '').toUpperCase();
+              return !(
+                d.includes('PAGTO DEBITO') ||
+                d.includes('PAGAMENTO DE FATURA') ||
+                d.includes('PAGAMENTO DA FATURA') ||
+                d.includes('PAGTO DEBITO AUTOMATICO') ||
+                d.includes('DÉBITO AUTOMÁTICO') ||
+                d.includes('DEBITO AUTOMATICO')
+              );
+            })
+            .map((item) => {
+            const rawAmt = parseFloat(String(item.amount));
+            const descStr = String(item.description || 'Item').slice(0, 80);
+            const isCredit = /ESTORNO|REEMBOLSO|CASHBACK|CRÉDITO|CREDITO|DESCONTO|DEVOLUC|DEVOLUÇ|INVESTBACK|AJUSTE/i.test(descStr);
+            let finalAmount = isNaN(rawAmt) ? 0 : rawAmt;
+            if (isCredit && finalAmount > 0) {
+              finalAmount = -Math.abs(finalAmount);
+            }
+            return {
+              description: descStr,
+              amount: finalAmount,
+              currentInstallment: parseInt(String(item.currentInstallment)) || 1,
+              totalInstallments: parseInt(String(item.totalInstallments)) || 1,
+            };
+          })
+        : [],
+    }));
+
+    // Consolidar cartões sintéticos (ex: 'Fatu' ou 'Resumo') no cartão principal real
+    const realCards = processedCards.filter((c) => c.last4Digits !== 'Fatu' && c.brand !== 'Resumo');
+    const syntheticCards = processedCards.filter((c) => c.last4Digits === 'Fatu' || c.brand === 'Resumo');
+
+    if (syntheticCards.length > 0 && realCards.length > 0) {
+      let mainCard = realCards[0];
+      for (const card of realCards) {
+        if (card.totalAmount > mainCard.totalAmount) {
+          mainCard = card;
+        }
+      }
+      for (const synCard of syntheticCards) {
+        for (const item of synCard.items) {
+          mainCard.items.push({
+            ...item,
+            cardLast4: mainCard.last4Digits,
+          });
+          mainCard.totalAmount = Math.round((mainCard.totalAmount + item.amount) * 100) / 100;
+        }
+      }
+      processedCards = realCards;
+    }
+
+    return {
+      monthReferenced: parsedJson.monthReferenced || new Date().toISOString().slice(0, 7),
+      dueDate: parsedJson.dueDate && /^\d{4}-\d{2}-\d{2}$/.test(String(parsedJson.dueDate)) ? String(parsedJson.dueDate) : undefined,
+      cards: processedCards,
+      extractedBy,
+      declaredInvoiceTotal: parsedJson.declaredInvoiceTotal ? Number(parsedJson.declaredInvoiceTotal) : undefined,
+    };
+  }
+
+  return null;
+}
+
+/** Re-lança erros relacionados a senha de PDF; retorna null em qualquer outro falha de IA. */
+function throwIfPasswordError(error: unknown): void {
+  const errMsg = getErrorMessage(error).toLowerCase();
+  if (
+    errMsg.includes('password') ||
+    errMsg.includes('encrypted') ||
+    errMsg.includes('protected') ||
+    errMsg.includes('senha') ||
+    (error instanceof Error && error.name === 'PasswordException')
+  ) {
+    throw error;
+  }
+}
+
+/**
+ * Fluxo 1 (novo): envia o PDF binário diretamente ao Gemini (multimodal inline)
+ * para extração do JSON estruturado. Não usa pdf-parse.
+ * Retorna null quando a IA não retornar dados utilizáveis (caller faz fallback).
+ */
+export async function extractWithAIPdfDirect(pdfBuffer: Buffer, apiKey?: string, bankSections?: string): Promise<ExtractedInvoiceResult | null> {
+  const key = apiKey || process.env.GEMINI_API_KEY;
+  if (!key) {
+    logger.info('[AI Extractor] Nenhuma chave de API fornecida. Acionando Fallback Regex.');
+    return null;
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(key);
+
+    // PDF inline em base64 (mimeType application/pdf, suportado multimodal pelo Gemini)
+    const pdfPart = {
+      inlineData: {
+        mimeType: 'application/pdf',
+        data: pdfBuffer.toString('base64'),
+      },
+    };
+
+    const prompt = buildExtractionPrompt('o documento PDF anexado', bankSections);
+    const responseText = await generateExtraction(genAI, [pdfPart, prompt]);
+    logger.info(
+      { bytes: pdfBuffer.length, responseLen: responseText.length },
+      '[AI Extractor] Extração via PDF direto (multimodal) concluída.',
+    );
+
+    const parsed = processAiJson(responseText);
+    if (!parsed) {
+      logger.warn(
+        { response: responseText.slice(0, 600) },
+        '[AI Extractor] PDF direto: resposta da IA sem cartões utilizáveis',
+      );
+    }
+    return parsed;
+  } catch (error) {
+    throwIfPasswordError(error);
+    throwIfAiRateLimit(error, 'PDF direto');
+    logger.warn({ err: getErrorMessage(error) }, '[AI Extractor Warning] Falha no envio do PDF direto à IA');
+    return null;
+  }
+}
+
+/**
+ * Fluxo 2 (existente): extrai o texto via pdf-parse e envia ao Gemini.
+ * Mantido como fallback quando o PDF direto falha ou excede limites inline.
+ */
+export async function extractWithAI(pdfBuffer: Buffer, apiKey?: string, password?: string, bankSections?: string): Promise<ExtractedInvoiceResult | null> {
+  const key = apiKey || process.env.GEMINI_API_KEY;
+  if (!key) {
+    logger.info('[AI Extractor] Nenhuma chave de API fornecida. Acionando Fallback Regex.');
+    return null;
+  }
+
+  try {
+    const options = (password ? { password } : {}) as unknown as Parameters<typeof pdfParse>[1];
+    const parsedPdf = await pdfParse(pdfBuffer, options);
+    const text = parsedPdf.text || '';
+    if (!text || text.trim().length === 0) {
+      return null;
+    }
+
+    const genAI = new GoogleGenerativeAI(key);
+
+    const sections = bankSections?.trim()
+      ? bankSections
+      : '(Instruções por banco não cadastradas: extraia pelas convenções gerais abaixo.)';
+
+    const prompt = `Você é um leitor especialista em faturas de cartão de crédito brasileiras.
+Analise o texto da fatura a seguir e extraia as informações estruturadas em JSON estrito.
+${EXTRACTION_PROMPT_CORE.replace('$BANK_SECTIONS', sections)}
+
+${EXTRACTION_JSON_SCHEMA}
 
 Texto da Fatura:
 ---
 ${text.slice(0, 15000)}
 ---`;
 
-    const result = await model.generateContent(prompt);
-    const responseText = result.response.text();
-    const parsedJson = JSON.parse(responseText);
+    const responseText = await generateExtraction(genAI, prompt);
+    logger.info(
+      { textLen: text.length, responseLen: responseText.length },
+      '[AI Extractor] Extração via texto (pdf-parse) concluída.',
+    );
 
-    if (parsedJson && Array.isArray(parsedJson.cards)) {
-      let processedCards: ParsedCardTransactions[] = parsedJson.cards.map((c: any) => ({
-        bankName: c.bankName || 'Cartão de Crédito',
-        brand: c.brand || 'Mastercard',
-        last4Digits: String(c.last4Digits || '0000').slice(-4),
-        totalAmount: parseFloat(c.totalAmount) || 0,
-        items: Array.isArray(c.items)
-          ? c.items
-              .filter((item: any) => {
-                const d = String(item.description || '').toUpperCase();
-                return !(
-                  d.includes('PAGTO DEBITO') ||
-                  d.includes('PAGAMENTO DE FATURA') ||
-                  d.includes('PAGAMENTO DA FATURA') ||
-                  d.includes('PAGTO DEBITO AUTOMATICO') ||
-                  d.includes('DÉBITO AUTOMÁTICO') ||
-                  d.includes('DEBITO AUTOMATICO')
-                );
-              })
-              .map((item: any) => {
-              const rawAmt = parseFloat(item.amount);
-              const descStr = String(item.description || 'Item').slice(0, 80);
-              const isCredit = /ESTORNO|REEMBOLSO|CASHBACK|CRÉDITO|CREDITO|DESCONTO|DEVOLUC|DEVOLUÇ|INVESTBACK|AJUSTE/i.test(descStr);
-              let finalAmount = isNaN(rawAmt) ? 0 : rawAmt;
-              if (isCredit && finalAmount > 0) {
-                finalAmount = -Math.abs(finalAmount);
-              }
-              return {
-                description: descStr,
-                amount: finalAmount,
-                currentInstallment: parseInt(item.currentInstallment) || 1,
-                totalInstallments: parseInt(item.totalInstallments) || 1,
-              };
-            })
-          : [],
-      }));
-
-      // Consolidar cartões sintéticos (ex: 'Fatu' ou 'Resumo') no cartão principal real
-      const realCards = processedCards.filter((c) => c.last4Digits !== 'Fatu' && c.brand !== 'Resumo');
-      const syntheticCards = processedCards.filter((c) => c.last4Digits === 'Fatu' || c.brand === 'Resumo');
-
-      if (syntheticCards.length > 0 && realCards.length > 0) {
-        let mainCard = realCards[0];
-        for (const card of realCards) {
-          if (card.totalAmount > mainCard.totalAmount) {
-            mainCard = card;
-          }
-        }
-        for (const synCard of syntheticCards) {
-          for (const item of synCard.items) {
-            mainCard.items.push({
-              ...item,
-              cardLast4: mainCard.last4Digits,
-            });
-            mainCard.totalAmount = Math.round((mainCard.totalAmount + item.amount) * 100) / 100;
-          }
-        }
-        processedCards = realCards;
-      }
-
-      return {
-        monthReferenced: parsedJson.monthReferenced || new Date().toISOString().slice(0, 7),
-        cards: processedCards,
-        extractedBy: 'ai',
-        declaredInvoiceTotal: parsedJson.declaredInvoiceTotal ? Number(parsedJson.declaredInvoiceTotal) : undefined,
-      };
+    const parsed = processAiJson(responseText);
+    if (!parsed) {
+      logger.warn(
+        { response: responseText.slice(0, 600) },
+        '[AI Extractor] Fluxo texto: resposta da IA sem cartões utilizáveis',
+      );
     }
-  } catch (error: any) {
-    const errMsg = (error.message || error.toString() || '').toLowerCase();
-    if (
-      errMsg.includes('password') ||
-      errMsg.includes('encrypted') ||
-      errMsg.includes('protected') ||
-      errMsg.includes('incorrect password') ||
-      error.name === 'PasswordException'
-    ) {
-      throw error;
-    }
-    console.warn('[AI Extractor Warning] Falha na chamada da IA:', error);
+    return parsed;
+  } catch (error) {
+    throwIfPasswordError(error);
+    throwIfAiRateLimit(error, 'fluxo texto');
+    logger.warn({ err: getErrorMessage(error) }, '[AI Extractor Warning] Falha na chamada da IA');
   }
 
   return null;

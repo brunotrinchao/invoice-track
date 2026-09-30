@@ -5,6 +5,7 @@ import { AtacadaoInvoiceParser } from './AtacadaoParser.js';
 import { MercadoPagoInvoiceParser } from './MercadoPagoParser.js';
 import { BradescoInvoiceParser } from './BradescoParser.js';
 import { GenericInvoiceParser } from './GenericParser.js';
+import { logger } from '../../utils/logger.js';
 
 export class InvoiceParserFactory {
   private static strategies: InvoiceParserStrategy[] = [
@@ -25,11 +26,11 @@ export class InvoiceParserFactory {
   public static getParser(text: string): InvoiceParserStrategy {
     for (const strategy of this.strategies) {
       if (strategy.canParse(text)) {
-        console.log(`[InvoiceParserFactory] Selecionada estratégia: ${strategy.name}`);
+        logger.info(`[InvoiceParserFactory] Selecionada estratégia: ${strategy.name}`);
         return strategy;
       }
     }
-    console.log('[InvoiceParserFactory] Selecionada estratégia genérica de Fallback');
+    logger.info('[InvoiceParserFactory] Selecionada estratégia genérica de Fallback');
     return this.genericStrategy;
   }
 

@@ -1,38 +1,45 @@
 <template>
-  <div class="flex items-center justify-between gap-3 rounded-xl bg-dark-card px-3.5 py-2.5">
+  <div
+    role="button"
+    tabindex="0"
+    class="flex w-full cursor-pointer items-center justify-between gap-3 rounded-xl bg-elevated border border-default px-3.5 py-2.5 text-left transition-colors hover:bg-slate-50 dark:hover:bg-dark-card/80 shadow-xs"
+    :aria-label="`Ver detalhe de ${item.description}`"
+    @click="onRowClick"
+    @keydown.enter="onRowClick"
+  >
     <div class="flex min-w-0 flex-1 flex-col">
       <div class="flex items-center gap-2">
-        <p class="truncate text-sm font-medium text-slate-200">{{ item.description }}</p>
-        <AppBadge
+        <p class="truncate text-sm font-extrabold text-default">{{ item.description }}</p>
+        <UiAppBadge
           v-if="item.isRecurring"
           tone="blue"
-          title="Se repite automaticamente en cada fatura"
-        >Recorrente</AppBadge>
+          title="Se repete automaticamente em cada fatura"
+        >Recorrente</UiAppBadge>
       </div>
-      <p class="mt-0.5 text-xs text-dark-muted">
+      <p class="mt-0.5 text-xs font-bold text-muted">
         {{ cardLabel }}
         <span v-if="item.totalInstallments > 1"> · Parcela {{ item.currentInstallment }}/{{ item.totalInstallments }}</span>
       </p>
     </div>
 
     <div class="flex items-center gap-2">
-      <span class="text-sm font-semibold text-white">{{ formatMoney(item.originalAmount) }}</span>
+      <span class="text-sm font-extrabold font-mono text-highlighted">{{ formatMoney(item.originalAmount) }}</span>
       <button
-        class="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-        :class="item.isRecurring
-          ? 'bg-brand-500/10 text-brand-500 hover:bg-brand-500/20'
-          : 'text-slate-500 hover:bg-white/5 hover:text-slate-200'"
-        :title="item.isRecurring ? 'Desativar recorrência' : 'Marcar como recorrente'"
-        :aria-label="item.isRecurring ? 'Desativar recorrência' : 'Marcar como recorrente'"
-        @click="onToggleRecurring"
+        v-if="item.isRecurring"
+        type="button"
+        class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-brand-500/10 text-brand-600 dark:text-brand-400 transition-colors hover:bg-brand-500/20"
+        title="Gerenciar recorrência"
+        aria-label="Gerenciar recorrência"
+        @click.stop="onToggleRecurring"
       >
-        <Icon name="lucide:repeat" />
+        <Icon name="lucide:repeat" class="h-4 w-4" />
       </button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/money'
 import type { Invoice } from '~/types/Invoice'
 import type { InvoiceItem } from '~/types/InvoiceItem'
 import type { Card } from '~/types/Card'
@@ -43,20 +50,28 @@ const props = defineProps<{
   card?: Card | null
 }>()
 
-const emit = defineEmits<{ 'set-recurring': [item: InvoiceItem] }>()
-
-const { item, invoice, card } = props
+const emit = defineEmits<{
+  'set-recurring': [item: InvoiceItem]
+  'item-click': [item: InvoiceItem]
+}>()
 
 const cardLabel = computed(() => {
-  const c = card ?? invoice.card
-  return c ? `${c.bankName} ${c.last4Digits}` : ''
+  const c = props.card ?? props.invoice?.card
+  return c ? `${c.bankName} •••• ${c.last4Digits}` : ''
 })
 
-function onToggleRecurring() {
-  emit('set-recurring', item)
+function onRowClick() {
+  if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur()
+  }
+  emit('item-click', props.item)
 }
 
-function formatMoney(value: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0)
+function onToggleRecurring() {
+  if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur()
+  }
+  emit('set-recurring', props.item)
 }
+
 </script>

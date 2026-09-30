@@ -1,11 +1,18 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
+import type { Prisma } from '@prisma/client';
+import { z } from 'zod';
 import {
   createRecurring,
   createRecurringFromItem,
   updateRecurring,
   deleteRecurring,
 } from '../services/recurringService.js';
+import { getErrorMessage } from '../utils/errors.js';
+import { respondError } from '../utils/logger.js';
+
+const MONTH_RE = /^\d{4}-\d{2}$/;
+const MAX_TAKE = 500;
 
 export const recurringRouter = Router();
 
@@ -13,27 +20,32 @@ export const recurringRouter = Router();
 recurringRouter.get('/', async (req, res) => {
   try {
     const { cardId } = req.query;
-    const where: any = {};
+    const where: Prisma.RecurringItemWhereInput = {};
     if (cardId && typeof cardId === 'string' && cardId.trim().length > 0 && cardId !== 'all') {
       where.cardId = cardId;
     }
 
-    const recurringItems = await prisma.recurringItem.findMany({
-      where,
-      include: {
-        card: {
-          select: { id: true, bankName: true, brand: true, last4Digits: true },
+    const [recurringItems, total] = await prisma.$transaction([
+      prisma.recurringItem.findMany({
+        where,
+        include: {
+          card: {
+            select: { id: true, bankName: true, brand: true, last4Digits: true },
+          },
+          _count: {
+            select: { items: true },
+          },
         },
-        _count: {
-          select: { items: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+        take: MAX_TAKE,
+      }),
+      prisma.recurringItem.count({ where }),
+    ]);
 
-    return res.json({ success: true, recurringItems });
-  } catch (error: any) {
-    return res.status(500).json({ error: 'Erro ao listar recorrentes: ' + error.message });
+    return res.json({ success: true, recurringItems, meta: { total, take: MAX_TAKE } });
+  } catch (error) {
+    respondError(res, 500, 'Erro ao listar recorrentes: ' + getErrorMessage(error));
+    return;
   }
 });
 
@@ -59,19 +71,27 @@ recurringRouter.get('/:id', async (req, res) => {
     }
 
     return res.json({ success: true, recurringItem });
-  } catch (error: any) {
-    return res.status(500).json({ error: 'Erro ao detalhar recorrente: ' + error.message });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro ao detalhar recorrente: ' + getErrorMessage(error) });
   }
 });
 
 // Criar recorrente (e propagar a faturas existentes)
+const createSchema = z.object({
+  cardId: z.string().min(1),
+  description: z.string().min(1),
+  amount: z.number().refine((v) => v !== 0, 'amount não pode ser zero'),
+  startMonthYear: z.string().regex(MONTH_RE),
+  endMonthYear: z.string().regex(MONTH_RE).nullable().optional(),
+});
+
 recurringRouter.post('/', async (req, res) => {
   try {
-    const { cardId, description, amount, startMonthYear, endMonthYear } = req.body;
-
-    if (!cardId || !description || amount === undefined || !startMonthYear) {
-      return res.status(400).json({ error: 'Campos obrigatórios: cardId, description, amount, startMonthYear.' });
+    const parsed = createSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, 400, 'Campos obrigatórios: cardId, description, amount, startMonthYear (YYYY-MM).');
     }
+    const { cardId, description, amount, startMonthYear, endMonthYear } = parsed.data;
 
     const card = await prisma.card.findUnique({ where: { id: cardId } });
     if (!card) {
@@ -87,22 +107,32 @@ recurringRouter.post('/', async (req, res) => {
     });
 
     return res.status(201).json({ success: true, ...result });
-  } catch (error: any) {
-    if (error.message && /inválido|não pode|recorrência/i.test(error.message)) {
-      return res.status(400).json({ error: error.message });
+  } catch (error) {
+    const msg = getErrorMessage(error);
+    if (msg && /inválido|não pode|recorrência/i.test(msg)) {
+      return res.status(400).json({ error: msg });
     }
-    return res.status(500).json({ error: 'Erro ao criar recorrente: ' + error.message });
+    return res.status(500).json({ error: 'Erro ao criar recorrente: ' + getErrorMessage(error) });
   }
 });
 
 // Criar recorrente a partir de um item existente (adopta o item origem)
+const fromItemSchema = z.object({
+  itemId: z.string().min(1),
+  cardId: z.string().min(1),
+  description: z.string().min(1).optional(),
+  amount: z.number().refine((v) => v !== 0, 'amount não pode ser zero').optional(),
+  startMonthYear: z.string().regex(MONTH_RE),
+  endMonthYear: z.string().regex(MONTH_RE).nullable().optional(),
+});
+
 recurringRouter.post('/from-item', async (req, res) => {
   try {
-    const { itemId, cardId, description, amount, startMonthYear, endMonthYear } = req.body;
-
-    if (!itemId || !cardId || !startMonthYear) {
-      return res.status(400).json({ error: 'Campos obrigatórios: itemId, cardId, startMonthYear.' });
+    const parsed = fromItemSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, 400, 'Campos obrigatórios: itemId, cardId, startMonthYear (YYYY-MM).');
     }
+    const { itemId, cardId, description, amount, startMonthYear, endMonthYear } = parsed.data;
 
     const card = await prisma.card.findUnique({ where: { id: cardId } });
     if (!card) {
@@ -118,11 +148,12 @@ recurringRouter.post('/from-item', async (req, res) => {
     });
 
     return res.status(201).json({ success: true, ...result });
-  } catch (error: any) {
-    if (error.message && /inválido|não pode|recorrência|Item não/i.test(error.message)) {
-      return res.status(400).json({ error: error.message });
+  } catch (error) {
+    const msg = getErrorMessage(error);
+    if (msg && /inválido|não pode|recorrência|Item não/i.test(msg)) {
+      return res.status(400).json({ error: msg });
     }
-    return res.status(500).json({ error: 'Erro ao criar recorrente a partir do item: ' + error.message });
+    return res.status(500).json({ error: 'Erro ao criar recorrente a partir do item: ' + msg });
   }
 });
 
@@ -141,11 +172,12 @@ recurringRouter.patch('/:id', async (req, res) => {
     });
 
     return res.json({ success: true, ...result });
-  } catch (error: any) {
-    if (error.message && /inválido|não pode|recorrência|Recorrente não/i.test(error.message)) {
-      return res.status(400).json({ error: error.message });
+  } catch (error) {
+    const msg = getErrorMessage(error);
+    if (msg && /inválido|não pode|recorrência|Recorrente não/i.test(msg)) {
+      return res.status(400).json({ error: msg });
     }
-    return res.status(500).json({ error: 'Erro ao atualizar recorrente: ' + error.message });
+    return res.status(500).json({ error: 'Erro ao atualizar recorrente: ' + getErrorMessage(error) });
   }
 });
 
@@ -157,10 +189,11 @@ recurringRouter.delete('/:id', async (req, res) => {
     const result = await deleteRecurring(id);
 
     return res.json({ success: true, message: 'Recorrente eliminado com sucesso.', ...result });
-  } catch (error: any) {
-    if (error.message && /Recorrente não/i.test(error.message)) {
-      return res.status(404).json({ error: error.message });
+  } catch (error) {
+    const msg = getErrorMessage(error);
+    if (msg && /Recorrente não/i.test(msg)) {
+      return res.status(404).json({ error: msg });
     }
-    return res.status(500).json({ error: 'Erro ao eliminar recorrente: ' + error.message });
+    return res.status(500).json({ error: 'Erro ao eliminar recorrente: ' + msg });
   }
 });

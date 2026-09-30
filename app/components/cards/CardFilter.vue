@@ -2,9 +2,24 @@
   <div class="w-full">
     <label
       v-if="label"
-      class="mb-1 block text-xs font-medium text-slate-400"
+      class="mb-1 block text-xs font-medium text-slate-300"
     >{{ label }}</label>
-    <div class="flex flex-wrap gap-2">
+    <p
+      v-if="loading"
+      class="text-xs text-slate-300"
+    >Cargando cartões…</p>
+    <p
+      v-else-if="error"
+      class="text-xs text-red-400"
+    >{{ error }}</p>
+    <p
+      v-else-if="cards.length === 0"
+      class="text-xs text-slate-300"
+    >Sem cartões.</p>
+    <div
+      v-else
+      class="flex flex-wrap gap-2"
+    >
       <button
         v-for="card in cards"
         :key="card.id"
@@ -20,6 +35,7 @@
 </template>
 
 <script setup lang="ts">
+import { apiUrl } from '~/utils/api'
 import type { Card } from '~/types/Card'
 
 const props = defineProps<{
@@ -30,7 +46,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'update:modelValue': [value: string[]] }>()
 
-const { modelValue = [], label = 'Cartões' } = props
+const { label = 'Cartões' } = props
 
 const cards = ref<Card[]>([])
 const loading = ref(false)
@@ -40,12 +56,12 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const res = await fetch('/api/cards')
+    const res = await fetch(apiUrl('/api/cards'))
     if (!res.ok) throw new Error(`GET /api/cards -> ${res.status}`)
     const data = (await res.json()) as { success: boolean; cards: Card[] }
     cards.value = data.cards
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Error al cargar los cartões'
+    error.value = e instanceof Error ? e.message : 'Erro ao cargar os cartões'
   } finally {
     loading.value = false
   }
@@ -54,19 +70,20 @@ async function load() {
 await load()
 
 function isSelected(id: string) {
-  return modelValue.includes(id)
+  return (props.modelValue ?? []).includes(id)
 }
 
 function toggle(id: string) {
+  const current = props.modelValue ?? []
   const next = isSelected(id)
-    ? modelValue.filter((v) => v !== id)
-    : [...modelValue, id]
+    ? current.filter((v) => v !== id)
+    : [...current, id]
   emit('update:modelValue', next)
 }
 
 function chipClasses(id: string) {
   return isSelected(id)
-    ? 'rounded-full border border-brand-500 bg-brand-500/15 px-3 py-1 text-xs font-medium text-brand-600'
-    : 'rounded-full border border-dark-border bg-dark-card px-3 py-1 text-xs font-medium text-slate-400 transition-colors hover:border-brand-500/50 hover:text-slate-200'
+    ? 'cursor-pointer inline-flex min-h-11 min-w-9 items-center justify-center rounded-full border border-brand-500 bg-brand-500/15 px-3 py-1.5 text-xs font-medium text-brand-600 transition-colors duration-200 hover:bg-brand-500/25'
+    : 'cursor-pointer inline-flex min-h-11 min-w-9 items-center justify-center rounded-full border border-dark-border bg-dark-card px-3 py-1.5 text-xs font-medium text-slate-300 transition-colors duration-200 hover:border-brand-500/50 hover:text-slate-200'
 }
 </script>

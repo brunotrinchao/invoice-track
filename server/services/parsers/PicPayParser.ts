@@ -13,17 +13,35 @@ export class PicPayInvoiceParser implements InvoiceParserStrategy {
     let brand = 'Mastercard';
     if (text.toUpperCase().includes('VISA')) brand = 'Visa';
 
-    // Mês de Referência (Mês de consumo anterior ao Vencimento)
+    // Mês de Referência e Data de Vencimento
     let monthReferenced = new Date().toISOString().slice(0, 7);
+    let dueDate: string | undefined = undefined;
     const dateMatch =
+      text.match(/Vencimento:\s*(\d{2})\/(\d{2})\/(\d{4})/i) ||
+      text.match(/(\d{2})\/(\d{2})\/(\d{4})\s*\|\s*Fechamento/i) ||
       text.match(/15\/(\d{2})\/(\d{4})\s*\|\s*09\/\d{2}\/\d{4}/) ||
-      text.match(/Vencimento:\s*15\/(\d{2})\/(\d{4})/i) ||
       text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
 
-    if (dateMatch && dateMatch[2] && dateMatch[2].length === 4) {
-      const year = parseInt(dateMatch[2], 10);
-      const month = parseInt(dateMatch[1], 10);
-      monthReferenced = getPreviousMonthReference(year, month);
+    if (dateMatch) {
+      let day = 15;
+      let month = 0;
+      let year = 0;
+
+      if (dateMatch[1] && dateMatch[2] && dateMatch[3] && dateMatch[3].length === 4) {
+        day = parseInt(dateMatch[1], 10);
+        month = parseInt(dateMatch[2], 10);
+        year = parseInt(dateMatch[3], 10);
+      } else if (dateMatch[2] && dateMatch[2].length === 4) {
+        month = parseInt(dateMatch[1], 10);
+        year = parseInt(dateMatch[2], 10);
+      }
+
+      if (year && month) {
+        monthReferenced = getPreviousMonthReference(year, month);
+        const dayStr = String(day).padStart(2, '0');
+        const monthStr = String(month).padStart(2, '0');
+        dueDate = `${year}-${monthStr}-${dayStr}`;
+      }
     }
 
     const cardItemsMap: Record<string, ExtractedInvoiceItem[]> = {};
@@ -146,6 +164,7 @@ export class PicPayInvoiceParser implements InvoiceParserStrategy {
 
     return {
       monthReferenced,
+      dueDate,
       cards,
       extractedBy: 'regex',
     };

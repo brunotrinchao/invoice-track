@@ -18,14 +18,17 @@ export class BradescoInvoiceParser implements InvoiceParserStrategy {
 
     // Mês de Referência (Mês de consumo anterior ao Vencimento, ex: Vencimento "25/08/2026" -> Referência "2026-07")
     let monthReferenced = new Date().toISOString().slice(0, 7);
+    let dueDate: string | undefined = undefined;
     const dateMatch =
       text.match(/Vencimento\s*(\d{2})\/(\d{2})\/(\d{4})/i) ||
       text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
 
     if (dateMatch && dateMatch[3] && dateMatch[3].length === 4) {
-      const year = parseInt(dateMatch[3], 10);
+      const day = parseInt(dateMatch[1], 10);
       const month = parseInt(dateMatch[2], 10);
+      const year = parseInt(dateMatch[3], 10);
       monthReferenced = getPreviousMonthReference(year, month);
+      dueDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     }
 
     // Identificar o Valor Total a Pagar do Boleto da Fatura (ex: R$ 4.149,52)
@@ -180,6 +183,7 @@ export class BradescoInvoiceParser implements InvoiceParserStrategy {
 
     return {
       monthReferenced,
+      dueDate,
       cards,
       extractedBy: 'regex',
       declaredInvoiceTotal,

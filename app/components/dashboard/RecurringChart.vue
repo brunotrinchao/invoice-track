@@ -1,5 +1,5 @@
 <template>
-  <AppCard title="Compras recorrentes">
+  <UiAppCard title="Compras recorrentes">
     <div v-if="error" class="rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400">
       {{ error }}
     </div>
@@ -8,23 +8,27 @@
       Cargando…
     </div>
 
+    <template v-else-if="!hasData">
+      <p class="py-8 text-center text-sm text-dark-muted">Sem dados de recorrentes</p>
+    </template>
+
     <template v-else>
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div class="rounded-xl bg-dark-card px-4 py-3">
-          <p class="text-xs uppercase tracking-wide text-dark-muted">Promedio mensual</p>
-          <p class="mt-1 text-xl font-bold text-white">{{ formatMoney(summary.monthlyAverage) }}</p>
+        <div class="rounded-xl glass-card px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-dark-muted">Média mensal</p>
+          <p class="mt-1 text-xl font-bold text-highlighted">{{ formatMoney(summary.monthlyAverage) }}</p>
         </div>
-        <div class="rounded-xl bg-dark-card px-4 py-3">
+        <div class="rounded-xl glass-card px-4 py-3">
           <p class="text-xs uppercase tracking-wide text-dark-muted">Próximo mes</p>
-          <p class="mt-1 text-xl font-bold text-white">{{ formatMoney(summary.nextMonthTotal) }}</p>
+          <p class="mt-1 text-xl font-bold text-highlighted">{{ formatMoney(summary.nextMonthTotal) }}</p>
         </div>
-        <div class="rounded-xl bg-dark-card px-4 py-3">
-          <p class="text-xs uppercase tracking-wide text-dark-muted">Recorrentes activas</p>
-          <p class="mt-1 text-xl font-bold text-white">{{ summary.activeCount }}</p>
+        <div class="rounded-xl glass-card px-4 py-3">
+          <p class="text-xs uppercase tracking-wide text-dark-muted">Recorrentes ativas</p>
+          <p class="mt-1 text-xl font-bold text-highlighted">{{ summary.activeCount }}</p>
         </div>
       </div>
 
-      <AreaChart
+      <ChartsAreaChart
         class="mt-5"
         :categories="categories"
         :series="series"
@@ -32,10 +36,11 @@
         :format-value="formatMoney"
       />
     </template>
-  </AppCard>
+  </UiAppCard>
 </template>
 
 <script setup lang="ts">
+import { formatMoney } from '~/utils/money'
 import { useReports } from '~/composables/useReports'
 import type { RecurringReportData } from '~/composables/useReports'
 
@@ -44,8 +49,6 @@ const props = defineProps<{
   from?: string // "YYYY-MM"
   to?: string // "YYYY-MM"
 }>()
-
-const { cardIds = [], from = '', to = '' } = props
 
 const { getRecurringReport } = useReports()
 
@@ -58,25 +61,21 @@ async function load() {
   error.value = ''
   try {
     report.value = await getRecurringReport({
-      cardIds: cardIds.length ? cardIds : undefined,
-      from: from || undefined,
-      to: to || undefined,
+      cardIds: props.cardIds?.length ? props.cardIds : undefined,
+      from: props.from || undefined,
+      to: props.to || undefined,
     })
   } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Error al cargar el reporte'
+    error.value = e instanceof Error ? e.message : 'Erro ao cargar o reporte'
     report.value = null
   } finally {
     loading.value = false
   }
 }
 
-watch(() => [cardIds, from, to], load)
+watch(() => [props.cardIds, props.from, props.to], load)
 
 void load()
-
-function formatMoney(value: number) {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value ?? 0)
-}
 
 const categories = computed(() => (report.value?.months ?? []).map((m) => m.monthYear))
 
@@ -88,7 +87,7 @@ const series = computed(() => {
       data: months.filter((m) => !m.isProjected).map((m) => m.total),
     },
     {
-      name: 'Proyectado',
+      name: 'Projetado',
       dashed: true,
       data: months.filter((m) => m.isProjected).map((m) => m.total),
     },
@@ -96,4 +95,6 @@ const series = computed(() => {
 })
 
 const summary = computed(() => report.value?.summary ?? { monthlyAverage: 0, nextMonthTotal: 0, activeCount: 0 })
+
+const hasData = computed(() => (report.value?.months ?? []).length > 0)
 </script>

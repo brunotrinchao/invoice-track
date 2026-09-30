@@ -11,8 +11,8 @@
 - Store generated artefacts in `.context/` so reruns stay deterministic.
 
 ## Testing instructions
-- Execute `npm run test` to run the Jest suite.
-- Append `-- --watch` while iterating on a failing spec.
+- Execute `npm run test` to run both backend (`tsx`) and frontend (`vitest`) test suites.
+- Run `npm run test:backend` or `npm run test:frontend` for targeted runs.
 - Trigger `npm run build && npm run test` before opening a PR to mimic CI.
 - Add or update tests alongside any generator or CLI changes.
 
@@ -20,17 +20,14 @@
 - Follow Conventional Commits (for example, `feat(scaffolding): add doc links`).
 - Cross-link new scaffolds in `docs/README.md` and `agents/README.md` so future agents can find them.
 - Attach sample CLI output or generated markdown when behaviour shifts.
-- Confirm the built artefacts in `dist/` match the new source changes.
+- Confirm the built artefacts match the new source changes.
 
 ## Repository map
-- `docker-compose.yml/` — explain what lives here and when agents should edit it.
-- `index.html/` — explain what lives here and when agents should edit it.
-- `package-lock.json/` — explain what lives here and when agents should edit it.
-- `package.json/` — explain what lives here and when agents should edit it.
-- `postcss.config.js/` — explain what lives here and when agents should edit it.
-- `prisma/` — explain what lives here and when agents should edit it.
-- `server/` — explain what lives here and when agents should edit it.
-- `src/` — explain what lives here and when agents should edit it.
+- `app/` — Nuxt 3 Vue frontend application (components, pages, composables, stores).
+- `docker-compose.yml` — Docker services configuration.
+- `package.json` — Root dependencies and scripts for backend/frontend execution.
+- `prisma/` — Database schema definitions and migrations.
+- `server/` — Express backend server (routes, services, parser engines, tests).
 
 ## AI Context References
 - Documentation index: `.context/docs/README.md`

@@ -26,15 +26,20 @@ export class GenericInvoiceParser implements InvoiceParserStrategy {
     else if (textUpper.includes('AMERICAN EXPRESS') || textUpper.includes('AMEX')) brand = 'Amex';
 
     let monthReferenced = new Date().toISOString().slice(0, 7);
+    let dueDate: string | undefined = undefined;
     const dateMatch =
       text.match(/vencimento[:\s]*(\d{2})[\/\.-](\d{2})[\/\.-](\d{4}|\d{2})/i) ||
       text.match(/(\d{2})[\/\.-](\d{2})[\/\.-](\d{4})/);
     if (dateMatch) {
+      const day = parseInt(dateMatch[1], 10);
       const month = parseInt(dateMatch[2], 10);
       let yearStr = dateMatch[3];
       if (yearStr.length === 2) yearStr = `20${yearStr}`;
       const year = parseInt(yearStr, 10);
       monthReferenced = getPreviousMonthReference(year, month);
+      if (!isNaN(day) && day >= 1 && day <= 31) {
+        dueDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      }
     }
 
     const cardItemsMap: Record<string, ExtractedInvoiceItem[]> = {};
@@ -134,6 +139,7 @@ export class GenericInvoiceParser implements InvoiceParserStrategy {
 
     return {
       monthReferenced,
+      dueDate,
       cards,
       extractedBy: 'regex',
     };

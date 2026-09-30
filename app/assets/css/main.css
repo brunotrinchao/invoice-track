@@ -1,21 +1,103 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+@variant dark (.dark &);
+
+@theme {
+  /* Curves — apple-design/animate skills (nunca built-in ease-out em animações deliberadas) */
+  --ease-out-ui: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out-ui: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #1d6bf3;
+  --color-brand-600: #1557d0;
+  --color-brand-700: #1d4ed8;
+  --color-brand-900: #1e3a8a;
+  --color-dark-bg: #0b0f19;
+  --color-dark-card: #151c2c;
+  --color-dark-border: #232d42;
+  --color-dark-muted: #94a3b8;
+  --font-sans: Inter, sans-serif;
+}
+
+html.light {
+  --color-dark-bg: #f8fafc;
+  --color-dark-card: #ffffff;
+  --color-dark-border: #e2e8f0;
+  --color-dark-muted: #64748b;
+  color-scheme: light;
+}
+
+html.light body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Light mode card surface defaults */
+html.light .glass-card {
+  background-color: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05);
+}
+
+@source "./**/*.{vue,js,ts}";
+@source "./app.vue";
 
 @layer utilities {
+  /* Hover transforms só em pointer fino — toque dispara hover fantasma */
+  @media (hover: hover) and (pointer: fine) {
+    .hover-lift:hover {
+      transform: translateY(-2px);
+    }
+  }
+
+  /* Press feedback global: pointer-down em qualquer botão nativo (AppButton já tem) */
+  button:not([disabled]):active {
+    transform: scale(0.97);
+  }
+  button {
+    transition-property: transform;
+    transition-duration: 120ms;
+    transition-timing-function: var(--ease-out-ui);
+  }
+
+  /* Page transition (NuxtPage out-in): fade curto, path simétrico */
+  .page-enter-active,
+  .page-leave-active {
+    transition: opacity 150ms var(--ease-out-ui);
+  }
+  .page-enter-from,
+  .page-leave-to {
+    opacity: 0;
+  }
+
+  /* Acessibilidade: respeita usuários com movimento reduzido */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   .glass-card {
-    background: #151c2c;
-    border: 1px solid #232d42;
+    background: var(--color-dark-card);
+    border: 1px solid var(--color-dark-border);
     box-shadow: 0 1px 3px 0 rgb(15 23 42 / 0.06);
   }
 
   .glass-modal {
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    box-shadow: 0 10px 30px -10px rgb(15 23 42 / 0.15);
+    box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.2);
   }
 
   .glow-blue {
-    box-shadow: 0 1px 3px 0 rgb(37 99 235 / 0.15);
+    box-shadow: 0 4px 14px 0 rgba(29, 107, 243, 0.35);
   }
 }

@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { apiUrl } from '~/utils/api'
 import type { Card } from '~/types/Card'
 
 /**
@@ -17,9 +18,10 @@ export const useCardStore = defineStore('cards', {
       this.loading = true
       this.error = null
       try {
-        const res = await fetch('/api/cards')
+        const res = await fetch(apiUrl('/api/cards'))
         if (!res.ok) throw new Error(`GET /api/cards -> ${res.status}`)
-        this.cards = (await res.json()) as Card[]
+        const data = (await res.json()) as { success: boolean; cards: Card[] }
+        this.cards = data.cards
       } catch (err) {
         this.error = err instanceof Error ? err.message : String(err)
       } finally {
@@ -28,7 +30,7 @@ export const useCardStore = defineStore('cards', {
     },
 
     async remove(id: string) {
-      const res = await fetch(`/api/cards/${id}`, { method: 'DELETE' })
+      const res = await fetch(apiUrl(`/api/cards/${id}`), { method: 'DELETE' })
       if (!res.ok) throw new Error(`DELETE /api/cards/${id} -> ${res.status}`)
       this.cards = this.cards.filter((c) => c.id !== id)
     },

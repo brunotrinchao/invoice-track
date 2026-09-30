@@ -4,9 +4,9 @@
       v-if="invoice.items.length === 0"
       class="rounded-xl bg-dark-card px-4 py-3 text-sm text-dark-muted"
     >
-      Sin items en esta fatura.
+      Sem items nesta fatura.
     </div>
-    <InvoiceItemRow
+    <InvoicesInvoiceItemRow
       v-for="item in invoice.items"
       :key="item.id"
       :item="item"

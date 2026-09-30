@@ -1,9 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { defineComponent } from 'vue'
-import SetRecurringModal from '../components/invoices/recurring/SetRecurringModal.vue'
-import AppSelect from '../components/ui/AppSelect.vue'
-import AppButton from '../components/ui/AppButton.vue'
+import SetRecurringDrawer from '../components/invoices/recurring/SetRecurringDrawer.vue'
 import type { Invoice } from '../types/Invoice'
 import type { InvoiceItem } from '../types/InvoiceItem'
 
@@ -40,29 +38,41 @@ function makeInvoice(monthYear: string, isPaid = false): Invoice {
   }
 }
 
-// Solo las faturas no pagas llegan al modal (las filtra el caller).
+// Solo las faturas no pagas llegan al drawer (las filtra el caller).
 const invoices = [makeInvoice('2026-09', false), makeInvoice('2026-10', false), makeInvoice('2026-11', false)]
 
-// Stub de AppModal: renderiza el slot sin Teleport para poder inspeccionar el DOM.
-const AppModalStub = defineComponent({
-  props: { open: Boolean, title: String },
-  template: '<div class="modal-stub" role="dialog"><slot /></div>',
+const UButtonStub = defineComponent({
+  template: '<button type="button"><slot /></button>',
+})
+const UDrawerStub = defineComponent({
+  props: { modelValue: { type: Boolean, default: false }, open: { type: Boolean, default: false } },
+  template: '<div class="udrawer-stub"><slot /><slot name="header" /><slot name="body" /><slot name="footer" /></div>',
 })
 
-function mountModal() {
-  const wrapper = mount(SetRecurringModal, {
+const TeleportStub = defineComponent({
+  template: '<div><slot /></div>',
+})
+
+const TransitionStub = defineComponent({
+  template: '<div><slot /></div>',
+})
+
+function mountDrawer() {
+  const wrapper = mount(SetRecurringDrawer, {
     props: { open: true, item, invoices, cardId: 'card-1' },
     global: {
       stubs: {
-        AppModal: AppModalStub,
+        Teleport: TeleportStub,
+        Transition: TransitionStub,
+        UButton: UButtonStub,
+        UDrawer: UDrawerStub,
       },
-      components: { AppSelect, AppButton },
     },
   })
   return wrapper
 }
 
-describe('SetRecurringModal', () => {
+describe('SetRecurringDrawer', () => {
   const fetchMock = vi.fn()
 
   beforeEach(() => {
@@ -81,24 +91,24 @@ describe('SetRecurringModal', () => {
   })
 
   it('default start = primera fatura no pagada', async () => {
-    const wrapper = mountModal()
+    const wrapper = mountDrawer()
     await wrapper.vm?.$nextTick()
 
     // primer select (start) con value 2026-09
     expect(wrapper.findAll('select')).toHaveLength(2)
-    expect(wrapper.findAll('select')[0].attributes('value')).toBe('2026-09')
+    expect((wrapper.findAll('select')[0].element as HTMLSelectElement).value).toBe('2026-09')
   })
 
   it('preview muestra "Se aplicará a N faturas" correcto', async () => {
-    const wrapper = mountModal()
+    const wrapper = mountDrawer()
     await wrapper.vm?.$nextTick()
 
     const text = wrapper.text().replace(/\s+/g, ' ').trim()
-    expect(text).toContain('Se aplicará a 3 faturas.')
+    expect(text).toContain('Será aplicada a 3 faturas.')
   })
 
   it('submit emite evento submitted con payload correcto', async () => {
-    const wrapper = mountModal()
+    const wrapper = mountDrawer()
     await wrapper.vm?.$nextTick()
 
     const confirm = wrapper.findAll('button').find((b) => b.text().trim() === 'Confirmar')
@@ -122,7 +132,7 @@ describe('SetRecurringModal', () => {
   })
 
   it('submit con término (end) incluye endMonthYear en el payload', async () => {
-    const wrapper = mountModal()
+    const wrapper = mountDrawer()
     await wrapper.vm?.$nextTick()
 
     const selects = wrapper.findAll('select')

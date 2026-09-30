@@ -1,20 +1,57 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
+import type { Prisma } from '@prisma/client';
 import { addMonthsToYearMonth, classifyItemType } from '../services/financialEngine.js';
+import { getErrorMessage } from '../utils/errors.js';
+import { logger } from '../utils/logger.js';
 
 export const reportsRouter = Router();
 
+interface RecurringReportItem {
+  id: string;
+  description: string;
+  amount: number;
+  recurringItemId: string | null;
+  invoiceId: string | null;
+  cardId: string;
+  isPaid: boolean;
+  projected: boolean;
+}
+
 reportsRouter.get('/predictability', async (req, res) => {
   try {
-    const { cardIds, from, to, status } = req.query;
+    const { cardIds, from, to, status, banks } = req.query;
 
-    // Filtro por múltiplos cartões (se fornecido)
+    // Filter by multiple cards (if provided)
     let selectedCardIds: string[] = [];
     if (cardIds && typeof cardIds === 'string' && cardIds.trim().length > 0) {
       selectedCardIds = cardIds.split(',').map((s) => s.trim());
     }
 
-    const whereCard: any = {};
+    // Filter by bank names: resolve cards by bankName and combine with cardIds
+    // via intersection (when both are provided). No matching cards -> empty result.
+    if (banks && typeof banks === 'string' && banks.trim().length > 0) {
+      const bankNames = banks.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+      if (bankNames.length > 0) {
+        const bankCards = await prisma.card.findMany({
+          where: { bankName: { in: bankNames } },
+          select: { id: true },
+        });
+        const bankCardIds = bankCards.map((c) => c.id);
+        if (selectedCardIds.length > 0) {
+          const cardIdSet = new Set(selectedCardIds);
+          selectedCardIds = bankCardIds.filter((id) => cardIdSet.has(id));
+        } else {
+          selectedCardIds = bankCardIds;
+        }
+        // Banks provided but no cards match -> force empty result (avoid returning everything)
+        if (selectedCardIds.length === 0) {
+          selectedCardIds = ['__no_card_matches__'];
+        }
+      }
+    }
+
+    const whereCard: Prisma.InvoiceWhereInput = {};
     if (selectedCardIds.length > 0) {
       whereCard.cardId = { in: selectedCardIds };
     }
@@ -93,7 +130,7 @@ reportsRouter.get('/predictability', async (req, res) => {
           itemsFallbackUsed = true;
           for (const item of inv.items) {
             const val = Number(item.originalAmount || 0);
-            const type = (item as any).itemType || classifyItemType(item.description, val);
+            const type = item.itemType || classifyItemType(item.description, val);
             if (type === 'FINE' || type === 'INTEREST' || type === 'TAX' || type === 'FEE') {
               fAmount += val;
             } else if (type === 'CREDIT') {
@@ -158,21 +195,44 @@ reportsRouter.get('/predictability', async (req, res) => {
       monthlySummary,
       selectedCardIds,
     });
-  } catch (error: any) {
-    console.error('Erro no relatório de previsibilidade:', error);
-    return res.status(500).json({ error: 'Erro ao gerar relatório: ' + error.message });
+  } catch (error) {
+    logger.error({ err: error }, 'Erro no relatório de previsibilidade');
+    return res.status(500).json({ error: 'Erro ao gerar relatório: ' + getErrorMessage(error) });
   }
 });
 
 // Relatório de compras recorrentes: materializado (isRecurring=true) + projetado (active en rango sin fatura)
 reportsRouter.get('/recurring', async (req, res) => {
   try {
-    const { cardIds, from, to } = req.query;
+    const { cardIds, from, to, banks } = req.query;
 
-    // Filtro por múltiplos cartões (se fornecido)
+    // Filter by multiple cards (if provided)
     let selectedCardIds: string[] = [];
     if (cardIds && typeof cardIds === 'string' && cardIds.trim().length > 0) {
       selectedCardIds = cardIds.split(',').map((s) => s.trim());
+    }
+
+    // Filter by bank names: resolve cards by bankName and combine with cardIds
+    // via intersection (when both are provided). No matching cards -> empty result.
+    if (banks && typeof banks === 'string' && banks.trim().length > 0) {
+      const bankNames = banks.split(',').map((s) => s.trim()).filter((s) => s.length > 0);
+      if (bankNames.length > 0) {
+        const bankCards = await prisma.card.findMany({
+          where: { bankName: { in: bankNames } },
+          select: { id: true },
+        });
+        const bankCardIds = bankCards.map((c) => c.id);
+        if (selectedCardIds.length > 0) {
+          const cardIdSet = new Set(selectedCardIds);
+          selectedCardIds = bankCardIds.filter((id) => cardIdSet.has(id));
+        } else {
+          selectedCardIds = bankCardIds;
+        }
+        // Banks provided but no cards match -> force empty result (avoid returning everything)
+        if (selectedCardIds.length === 0) {
+          selectedCardIds = ['__no_card_matches__'];
+        }
+      }
     }
 
     // Filtro por período (YYYY-MM)
@@ -181,9 +241,10 @@ reportsRouter.get('/recurring', async (req, res) => {
     if (from && typeof from === 'string' && /^\d{4}-\d{2}$/.test(from)) periodFrom = from;
     if (to && typeof to === 'string' && /^\d{4}-\d{2}$/.test(to)) periodTo = to;
 
-    const cardFilter: any = {};
+    const cardFilter: Prisma.InvoiceItemWhereInput = {};
     if (selectedCardIds.length > 0) {
-      cardFilter.cardId = { in: selectedCardIds };
+      // InvoiceItem has no direct cardId — filter through the invoice relation
+      cardFilter.invoice = { cardId: { in: selectedCardIds } };
     }
 
     // --- Materializado: items marcados como recorrentes en faturas existentes ---
@@ -202,7 +263,7 @@ reportsRouter.get('/recurring', async (req, res) => {
     });
 
     // --- Projetado: recorrentes activos en el rango sin fatura materializada ---
-    const recurringFilter: any = {
+    const recurringFilter: Prisma.RecurringItemWhereInput = {
       active: true,
       ...(selectedCardIds.length > 0 ? { cardId: { in: selectedCardIds } } : {}),
     };
@@ -238,7 +299,7 @@ reportsRouter.get('/recurring', async (req, res) => {
     }
 
     const monthSet = new Set(months);
-    const materializedByMonth: Record<string, any[]> = {};
+    const materializedByMonth: Record<string, RecurringReportItem[]> = {};
     for (const item of materializedItems) {
       if (!monthSet.has(item.invoice.monthYear)) continue;
       (materializedByMonth[item.invoice.monthYear] = materializedByMonth[item.invoice.monthYear] || []).push({
@@ -267,7 +328,7 @@ reportsRouter.get('/recurring', async (req, res) => {
     });
     const existingKeySet = new Set(existingInvoices.map((inv) => `${inv.cardId}|${inv.monthYear}`));
 
-    const projectedByMonth: Record<string, any[]> = {};
+    const projectedByMonth: Record<string, RecurringReportItem[]> = {};
     for (const rec of recurrings) {
       if (materializedIds.has(rec.id)) continue; // ya materializado, no duplicar
       let cursor = rec.startMonthYear;
@@ -292,6 +353,35 @@ reportsRouter.get('/recurring', async (req, res) => {
       }
     }
 
+    const monthsResult = months.map((m) => {
+      const materialized = materializedByMonth[m] || [];
+      const projected = projectedByMonth[m] || [];
+      const total = Math.round(
+        (materialized.reduce((s, item) => s + item.amount, 0) +
+          projected.reduce((s, item) => s + item.amount, 0)) * 100
+      ) / 100;
+      return {
+        monthYear: m,
+        total,
+        isProjected: materialized.length === 0 && projected.length > 0,
+        materialized,
+        projected,
+        items: [...materialized, ...projected],
+      };
+    });
+
+    // Métricas agregadas para el cliente (contrato app/composables/useReports.ts)
+    const realMonths = monthsResult.filter((m) => !m.isProjected);
+    const projectedMonths = monthsResult.filter((m) => m.isProjected);
+    const monthlyAverage =
+      realMonths.length > 0
+        ? Math.round((realMonths.reduce((sum, m) => sum + m.total, 0) / realMonths.length) * 100) / 100
+        : 0;
+    // Próximo mes: primer mes proyectado (sin fatura materializada), o el último del timeline
+    const nextMonthTotal = projectedMonths.length > 0
+      ? projectedMonths[0].total
+      : monthsResult.length > 0 ? monthsResult[monthsResult.length - 1].total : 0;
+
     const summary = {
       totalMaterialized: materializedItems.length,
       totalProjected: Object.values(projectedByMonth).reduce((sum, arr) => sum + arr.length, 0),
@@ -300,18 +390,12 @@ reportsRouter.get('/recurring', async (req, res) => {
         (sum, arr) => sum + arr.reduce((s, item) => s + item.amount, 0),
         0
       ),
+      // Campos consumidos por RecurringChart.vue
+      monthlyAverage,
+      nextMonthTotal,
+      activeCount: recurrings.length,
+      projectedMonths: projectedMonths.length,
     };
-
-    const monthsResult = months.map((m) => ({
-      monthYear: m,
-      total: Math.round(
-        ((materializedByMonth[m] || []).reduce((s, item) => s + item.amount, 0) +
-          (projectedByMonth[m] || []).reduce((s, item) => s + item.amount, 0)) * 100
-      ) / 100,
-      materialized: materializedByMonth[m] || [],
-      projected: projectedByMonth[m] || [],
-      items: [...(materializedByMonth[m] || []), ...(projectedByMonth[m] || [])],
-    }));
 
     return res.json({
       success: true,
@@ -319,9 +403,9 @@ reportsRouter.get('/recurring', async (req, res) => {
       summary,
       selectedCardIds,
     });
-  } catch (error: any) {
-    console.error('Erro no relatório de recorrentes:', error);
-    return res.status(500).json({ error: 'Erro ao gerar relatório de recorrentes: ' + error.message });
+  } catch (error) {
+    logger.error({ err: error }, 'Erro no relatório de recorrentes');
+    return res.status(500).json({ error: 'Erro ao gerar relatório de recorrentes: ' + getErrorMessage(error) });
   }
 });
 

@@ -13,6 +13,7 @@ export interface Invoice {
   cardId: string
   card?: Card
   monthYear: string // Formato "YYYY-MM" (Ej: "2026-09")
+  dueDate?: string | null // Formato ISO o "YYYY-MM-DD"
   totalAmount: number
   purchasesAmount: number
   fineAmount: number

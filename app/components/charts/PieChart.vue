@@ -1,5 +1,5 @@
 <template>
-  <BaseChart
+  <ChartsBaseChart
     type="pie"
     :data="data"
     :tooltip="tooltip"
@@ -15,13 +15,19 @@ interface PieDatum {
   value: number
 }
 
-const props = defineProps<{
-  data?: PieDatum[]
-  tooltip?: Record<string, unknown>
-  legend?: Record<string, unknown>
-  height?: number
-  formatValue?: (value: number) => string
-}>()
-
-const { data = [], tooltip = {}, legend = {}, height = 280, formatValue } = props
+withDefaults(
+  defineProps<{
+    data?: PieDatum[]
+    tooltip?: Record<string, unknown>
+    legend?: Record<string, unknown>
+    height?: number
+    formatValue?: (value: number) => string
+  }>(),
+  {
+    data: () => [],
+    tooltip: () => ({}),
+    legend: () => ({}),
+    height: 280,
+  },
+)
 </script>

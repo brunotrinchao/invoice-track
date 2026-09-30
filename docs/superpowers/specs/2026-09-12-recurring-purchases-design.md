@@ -283,7 +283,7 @@ app/
 2. **Fase 1 — Componentes UI base**: AppButton, AppInput, AppSelect, AppModal, AppBadge, AppCard. Test visual.
 3. **Fase 2 — Migração por dominio**: upload → invoices → cards → dashboard. Cada dominio: componentes Vue + composable + store + tests.
 4. **Fase 3 — Charts**: migrar Recharts → ECharts. RecurringChart novo (feature recorrentes).
-5. **Fase 4 — Eliminar React**: remover `src/` React, Vite config, dependencias react/recharts. `npm run build` → `nuxt build`.
+5. **Fase 4 — Excluir React**: remover `src/` React, Vite config, dependencias react/recharts. `npm run build` → `nuxt build`.
 6. **Fase 5 — Feature recorrentes** (sección 3) sobre base Vue.
 
 ### 6.6 Riscos migração

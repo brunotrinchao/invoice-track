@@ -31,6 +31,15 @@ function vmOf(wrapper: Awaited<ReturnType<typeof mount>>): RecurringChartVm {
   return wrapper.vm as unknown as RecurringChartVm
 }
 
+const mountOptions = {
+  global: {
+    stubs: {
+      UiAppCard: { template: '<div><slot /></div>' },
+      ChartsAreaChart: { template: '<div />' },
+    },
+  },
+}
+
 describe('RecurringChart', () => {
   const fetchMock = vi.fn()
 
@@ -52,6 +61,7 @@ describe('RecurringChart', () => {
   it('fetch /api/reports/recurring y renderiza stats', async () => {
     const wrapper = await mount(RecurringChart, {
       props: { cardIds: [], from: '', to: '' },
+      ...mountOptions,
     })
     const vm = vmOf(wrapper)
 
@@ -68,6 +78,7 @@ describe('RecurringChart', () => {
   it('proyectado vs materializado distinguidos en las series del chart', async () => {
     const wrapper = await mount(RecurringChart, {
       props: { cardIds: [], from: '', to: '' },
+      ...mountOptions,
     })
     const vm = vmOf(wrapper)
 
@@ -83,7 +94,7 @@ describe('RecurringChart', () => {
     expect(realizado.dashed).toBeUndefined()
     expect(realizado.data).toEqual([100, 120])
 
-    expect(proyectado.name).toBe('Proyectado')
+    expect(proyectado.name).toBe('Projetado')
     expect(proyectado.dashed).toBe(true)
     expect(proyectado.data).toEqual([140, 160])
   })
@@ -91,6 +102,7 @@ describe('RecurringChart', () => {
   it('pasa cardIds/from/to como query params', async () => {
     const wrapper = await mount(RecurringChart, {
       props: { cardIds: ['card-1', 'card-2'], from: '2026-07', to: '2026-12' },
+      ...mountOptions,
     })
     const vm = vmOf(wrapper)
 

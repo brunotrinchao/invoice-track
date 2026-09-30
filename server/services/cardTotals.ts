@@ -10,7 +10,10 @@ export function addMonthsToYearMonth(yearMonth: string, monthDelta: number): str
   return `${y}-${m}`;
 }
 
-export function classifyItemType(description: string, amount: number): 'PURCHASE' | 'FEE' | 'FINE' | 'INTEREST' | 'TAX' | 'CREDIT' {
+export function classifyItemType(description: string, amount: number, totalInstallments: number = 1, bankName?: string): 'PURCHASE' | 'FEE' | 'FINE' | 'INTEREST' | 'TAX' | 'CREDIT' {
+  if (bankName === 'Atacadão' && totalInstallments > 1) {
+    return 'PURCHASE';
+  }
   if (amount < 0 || /ESTORNO|REEMBOLSO|CASHBACK|CRÉDITO|CREDITO|DESCONTO|DEVOLUC|DEVOLUÇ|INVESTBACK|AJUSTE/i.test(description)) {
     return 'CREDIT';
   }

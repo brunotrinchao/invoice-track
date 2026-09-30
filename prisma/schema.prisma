@@ -28,6 +28,7 @@ model Invoice {
   cardId          String        @map("card_id")
   card            Card          @relation(fields: [cardId], references: [id], onDelete: Cascade)
   monthYear       String        @map("month_year") // Formato "YYYY-MM" (Ex: "2026-09")
+  dueDate         DateTime?     @map("due_date")
   totalAmount     Decimal       @default(0.00) @map("total_amount") @db.Decimal(10, 2)
   purchasesAmount Decimal       @default(0.00) @map("purchases_amount") @db.Decimal(10, 2)
   fineAmount      Decimal       @default(0.00) @map("fine_amount") @db.Decimal(10, 2)
@@ -95,4 +96,17 @@ model InvoiceFee {
 
   @@index([invoiceId])
   @@map("invoice_fees")
+}
+
+model BankInstruction {
+  id        String   @id @default(uuid())
+  bankName  String   @map("bank_name")
+  keywords  String   @map("keywords") @db.Text
+  rules     String   @map("rules") @db.Text
+  source    String   @default("manual")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([bankName])
+  @@map("bank_instructions")
 }

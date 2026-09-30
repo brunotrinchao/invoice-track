@@ -67,9 +67,9 @@ describe('MercadoPagoInvoiceParser', () => {
     assert.equal(parser.canParse(MERCADO_PAGO_FIXTURE), true);
   });
 
-  test('monthReferenced = mês anterior ao vencimento', () => {
+  test('monthReferenced = mês do vencimento', () => {
     const result = parser.parse(MERCADO_PAGO_FIXTURE);
-    assert.equal(result.monthReferenced, '2026-07');
+    assert.equal(result.monthReferenced, '2026-08');
   });
 
   test('declaredInvoiceTotal captura o total do boleto', () => {
@@ -127,6 +127,51 @@ describe('MercadoPagoInvoiceParser', () => {
     // totalAmount = soma de tudo, que difere da soma só de compras quando há taxas/créditos
     assert.notEqual(card4422.totalAmount, Math.round(sumPurchases * 100) / 100);
     assert.equal(card4422.totalAmount, Math.round(sumAll * 100) / 100);
+  });
+});
+
+import { AtacadaoInvoiceParser } from '../services/parsers/AtacadaoParser.js';
+
+describe('AtacadaoInvoiceParser', () => {
+  test('canParse e extração de anuidade parcelada (11/12)', () => {
+    const parser = new AtacadaoInvoiceParser();
+    const text = `
+      FATURA MENSAL CARTÃO MASTERCARD GOLD
+      543882******5176
+      VENCIMENTO 26/09/2026
+      10/08 Anuidade Diferenciada 11/12
+      15,90
+    `;
+    assert.equal(parser.canParse(text), true);
+    const result = parser.parse(text);
+    assert.equal(result.monthReferenced, '2026-09');
+    assert.equal(result.dueDate, '2026-09-26');
+    const card = result.cards[0];
+    const anuidade = card.items.find((i: any) => i.description.includes('Anuidade'));
+    assert.ok(anuidade, 'Anuidade extraída');
+    assert.equal(anuidade.currentInstallment, 11);
+    assert.equal(anuidade.totalInstallments, 12);
+  });
+});
+
+import { PicPayInvoiceParser } from '../services/parsers/PicPayParser.js';
+
+describe('PicPayInvoiceParser', () => {
+  test('canParse e extração automática do vencimento PicPay', () => {
+    const parser = new PicPayInvoiceParser();
+    const text = `
+      Bruno Trinchão,
+      R DAS GAIVOTAS, 646, IMBUI, APT 904, 41720070 SALVADOR - BA
+      Vencimento: 15/09/2026 | Fechamento: 09/09/2026
+      PicPay Mastercard® GOLD
+      PicPay Card final 8056
+      19/08 SUPERMERCADO PARC 1/2 R$ 120,00
+    `;
+    assert.equal(parser.canParse(text), true);
+    const result = parser.parse(text);
+    assert.equal(result.monthReferenced, '2026-09');
+    assert.equal(result.dueDate, '2026-09-15');
+    assert.equal(result.cards[0].last4Digits, '8056');
   });
 });
 

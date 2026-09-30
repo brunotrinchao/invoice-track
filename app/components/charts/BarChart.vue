@@ -1,5 +1,5 @@
 <template>
-  <BaseChart
+  <ChartsBaseChart
     type="bar"
     :data="[]"
     :categories="categories"
@@ -18,14 +18,21 @@ interface BarSeries {
   dashed?: boolean
 }
 
-const props = defineProps<{
-  categories?: string[]
-  series?: BarSeries[]
-  tooltip?: Record<string, unknown>
-  legend?: Record<string, unknown>
-  height?: number
-  formatValue?: (value: number) => string
-}>()
-
-const { categories = [], series = [], tooltip = {}, legend = {}, height = 280, formatValue } = props
+withDefaults(
+  defineProps<{
+    categories?: string[]
+    series?: BarSeries[]
+    tooltip?: Record<string, unknown>
+    legend?: Record<string, unknown>
+    height?: number
+    formatValue?: (value: number) => string
+  }>(),
+  {
+    categories: () => [],
+    series: () => [],
+    tooltip: () => ({}),
+    legend: () => ({}),
+    height: 280,
+  },
+)
 </script>

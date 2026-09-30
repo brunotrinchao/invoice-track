@@ -1,3 +1,4 @@
+import { apiUrl } from '~/utils/api'
 import type { RecurringItem, RecurringItemInput } from '~/types/RecurringItem'
 
 /**
@@ -6,14 +7,14 @@ import type { RecurringItem, RecurringItemInput } from '~/types/RecurringItem'
  */
 export function useRecurring() {
   async function list(): Promise<RecurringItem[]> {
-    const res = await fetch('/api/recurring')
+    const res = await fetch(apiUrl('/api/recurring'))
     if (!res.ok) throw new Error(`GET /api/recurring -> ${res.status}`)
-    const data = (await res.json()) as { success: boolean; recurrings: RecurringItem[] }
-    return data.recurrings
+    const data = (await res.json()) as { success: boolean; recurringItems: RecurringItem[] }
+    return data.recurringItems ?? []
   }
 
   async function createRecurring(input: RecurringItemInput): Promise<RecurringItem> {
-    const res = await fetch('/api/recurring', {
+    const res = await fetch(apiUrl('/api/recurring'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
@@ -30,7 +31,7 @@ export function useRecurring() {
     startMonthYear: string
     endMonthYear?: string | null
   }): Promise<RecurringItem> {
-    const res = await fetch('/api/recurring/from-item', {
+    const res = await fetch(apiUrl('/api/recurring/from-item'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
@@ -40,12 +41,12 @@ export function useRecurring() {
   }
 
   async function deleteRecurring(id: string): Promise<void> {
-    const res = await fetch(`/api/recurring/${id}`, { method: 'DELETE' })
+    const res = await fetch(apiUrl(`/api/recurring/${id}`), { method: 'DELETE' })
     if (!res.ok) throw new Error(`DELETE /api/recurring/${id} -> ${res.status}`)
   }
 
   async function setActive(id: string, active: boolean): Promise<RecurringItem> {
-    const res = await fetch(`/api/recurring/${id}`, {
+    const res = await fetch(apiUrl(`/api/recurring/${id}`), {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ active }),

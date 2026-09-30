@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import { processInvoiceConfirmation } from '../services/financialEngine.js';
+import { getErrorMessage } from '../utils/errors.js';
+import { logger, respondError } from '../utils/logger.js';
 
 export const confirmRouter = Router();
 
 confirmRouter.post('/', async (req, res) => {
   try {
-    const { monthReferenced, cards, bankName, brand, last4Digits, items, overwriteExisting, pdfPassword, declaredInvoiceTotal } = req.body;
+    const { monthReferenced, dueDate, cards, bankName, brand, last4Digits, items, overwriteExisting, overwriteMode, pdfPassword, declaredInvoiceTotal, isPaid } = req.body;
 
     // 1. Validar Mês de Referência
     if (!monthReferenced || typeof monthReferenced !== 'string' || !/^\d{4}-\d{2}$/.test(monthReferenced.trim())) {
@@ -66,10 +68,11 @@ confirmRouter.post('/', async (req, res) => {
 
         for (let itemIdx = 0; itemIdx < c.items.length; itemIdx++) {
           const item = c.items[itemIdx];
-          const amount = item.amount ?? item.originalAmount;
-          if (typeof amount !== 'number' || isNaN(amount) || amount === 0) {
+          const rawVal = item.amount ?? item.originalAmount;
+          const amount = Number(rawVal);
+          if (rawVal === undefined || rawVal === null || isNaN(amount)) {
             return res.status(400).json({
-              error: `O item "${item.description || 'sem descrição'}" do cartão ${c.bankName} está com valor inválido (R$ ${amount}).`,
+              error: `O item "${item.description || 'sem descrição'}" do cartão ${c.bankName} está com valor numérico inválido.`,
               missingField: `cards[${idx}].items[${itemIdx}].amount`,
             });
           }
@@ -80,12 +83,15 @@ confirmRouter.post('/', async (req, res) => {
     // 4. Processar transação no MySQL
     const result = await processInvoiceConfirmation({
       monthReferenced: monthReferenced.trim(),
+      dueDate: dueDate ? String(dueDate).trim() : undefined,
+      isPaid: Boolean(isPaid),
       cards: hasCardsArray ? cards : undefined,
       bankName: !hasCardsArray ? bankName : undefined,
       brand: !hasCardsArray ? brand : undefined,
       last4Digits: !hasCardsArray ? last4Digits : undefined,
       items: !hasCardsArray ? items : undefined,
       overwriteExisting: Boolean(overwriteExisting),
+      overwriteMode: overwriteMode ? (String(overwriteMode) as 'all' | 'differences' | 'none') : undefined,
       pdfPassword,
       declaredInvoiceTotal: declaredInvoiceTotal ? Number(declaredInvoiceTotal) : undefined,
     });
@@ -94,10 +100,9 @@ confirmRouter.post('/', async (req, res) => {
       success: true,
       result,
     });
-  } catch (error: any) {
-    console.error('Erro na rota /api/confirm-invoice:', error);
-    return res.status(500).json({
-      error: 'Falha ao confirmar e salvar a fatura no MySQL: ' + error.message,
-    });
+  } catch (error) {
+    logger.error({ err: error }, 'Erro na rota /api/confirm-invoice');
+    respondError(res, 500, 'Falha ao confirmar e salvar a fatura no MySQL: ' + getErrorMessage(error));
+    return;
   }
 });

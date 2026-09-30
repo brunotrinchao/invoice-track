@@ -18,8 +18,9 @@ export interface ParsedCardTransactions {
 
 export interface ExtractedInvoiceResult {
   monthReferenced: string; // "YYYY-MM"
+  dueDate?: string; // "YYYY-MM-DD"
   cards: ParsedCardTransactions[]; // Suporte a múltiplos cartões por fatura
-  extractedBy: 'regex' | 'ai';
+  extractedBy: 'regex' | 'gemini' | 'gpt';
   usedPassword?: string;
   declaredInvoiceTotal?: number; // Total a pagar do boleto da fatura
 }
@@ -31,13 +32,11 @@ export interface InvoiceParserStrategy {
 }
 
 /**
- * Retorna o mês/ano de referência da fatura a partir da data de vencimento (mês de consumo M-1).
- * Exemplo: Vencimento 10/09/2026 -> Mês de Referência 2026-08 (Agosto).
- * Exemplo: Vencimento 17/08/2026 -> Mês de Referência 2026-07 (Julho).
+ * Retorna o mês/ano de referência da fatura a partir da data de vencimento (mês de vencimento YYYY-MM).
+ * Exemplo: Vencimento 10/09/2026 -> Mês de Referência 2026-09.
+ * Exemplo: Vencimento 17/08/2026 -> Mês de Referência 2026-08.
  */
 export function getPreviousMonthReference(year: number, month: number): string {
-  const d = new Date(year, month - 1 - 1, 1);
-  const prevYear = d.getFullYear();
-  const prevMonth = String(d.getMonth() + 1).padStart(2, '0');
-  return `${prevYear}-${prevMonth}`;
+  const m = String(month).padStart(2, '0');
+  return `${year}-${m}`;
 }

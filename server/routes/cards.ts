@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../db.js';
+import { getErrorMessage, prismaErrorStatus } from '../utils/errors.js';
+import { respondError } from '../utils/logger.js';
 
 export const cardsRouter = Router();
 
@@ -15,8 +17,9 @@ cardsRouter.get('/', async (req, res) => {
       },
     });
     return res.json({ success: true, cards });
-  } catch (error: any) {
-    return res.status(500).json({ error: 'Erro ao listar cartões: ' + error.message });
+  } catch (error) {
+    respondError(res, 500, 'Erro ao listar cartões: ' + getErrorMessage(error));
+    return;
   }
 });
 
@@ -28,7 +31,9 @@ cardsRouter.delete('/:id', async (req, res) => {
       where: { id },
     });
     return res.json({ success: true, message: 'Cartão removido com sucesso.' });
-  } catch (error: any) {
-    return res.status(500).json({ error: 'Erro ao remover cartão: ' + error.message });
+  } catch (error) {
+    const status = prismaErrorStatus(error) || 500;
+    respondError(res, status, 'Erro ao remover cartão: ' + getErrorMessage(error));
+    return;
   }
 });

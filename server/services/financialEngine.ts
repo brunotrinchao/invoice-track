@@ -1,7 +1,10 @@
 import { prisma } from '../db.js';
+import type { Prisma } from '@prisma/client';
 import { ParsedCardTransactions, ExtractedInvoiceItem } from './parsers/InvoiceParserInterface.js';
 import { addMonthsToYearMonth, classifyItemType, recalculateCardTotals } from './cardTotals.js';
 import { applyRecurringToInvoice } from './recurringService.js';
+import { normalizeBankName } from './bankUtils.js';
+import { logger } from '../utils/logger.js';
 
 // Re-export para compatibilidade con rutas existentes (reports.ts)
 export { addMonthsToYearMonth, classifyItemType };
@@ -24,6 +27,7 @@ export function getCardGradient(bankName: string): string {
 
 export interface ConfirmInvoicePayload {
   monthReferenced: string; // "YYYY-MM"
+  dueDate?: string; // "YYYY-MM-DD"
   cards?: ParsedCardTransactions[];
   // Campos legados para suporte retrocompatível a cartão único
   bankName?: string;
@@ -31,12 +35,30 @@ export interface ConfirmInvoicePayload {
   last4Digits?: string;
   items?: ExtractedInvoiceItem[];
   overwriteExisting?: boolean;
+  overwriteMode?: 'all' | 'differences' | 'none';
   pdfPassword?: string;
   declaredInvoiceTotal?: number; // Total a pagar declarado no boleto/PDF
+  isPaid?: boolean; // Marca a fatura do mês de referência como já paga
+}
+
+export function computeDueDateForMonthYear(monthYear: string, baseDueDate?: string | Date | null): Date {
+  const [y, m] = monthYear.split('-').map(Number);
+  let day = 10;
+  if (baseDueDate) {
+    const d = new Date(baseDueDate);
+    if (!isNaN(d.getTime())) {
+      day = d.getUTCDate();
+    }
+  }
+  const lastDayOfMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  const validDay = Math.min(day, lastDayOfMonth);
+  return new Date(Date.UTC(y, m - 1, validDay, 12, 0, 0));
 }
 
 export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload) {
-  const { monthReferenced, overwriteExisting, pdfPassword, declaredInvoiceTotal } = payload;
+  const { monthReferenced, overwriteExisting, overwriteMode, pdfPassword, declaredInvoiceTotal, isPaid } = payload;
+  const effectiveMode: 'all' | 'differences' | 'none' =
+    overwriteMode || (overwriteExisting ? 'all' : 'none');
 
   // Normalizar lista de cartões (seja multi-cartão ou cartão único)
   let cardsList: ParsedCardTransactions[] = [];
@@ -59,7 +81,8 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
     const processedCardsResult = [];
 
     for (const cardData of cardsList) {
-      const { bankName, brand, last4Digits, items } = cardData;
+      const bankName = normalizeBankName(cardData.bankName);
+      const { brand, last4Digits, items } = cardData;
 
       // 1. Obter ou Criar o Cartão de Crédito no MySQL
       let card = await tx.card.findUnique({
@@ -82,7 +105,7 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
             pdfPassword: pdfPassword || null,
           },
         });
-        console.log(`[Financial Engine] Novo cartão criado no MySQL: ${bankName} (${last4Digits})`);
+        logger.info(`[Financial Engine] Novo cartão criado no MySQL: ${bankName} (${last4Digits})`);
       } else if (pdfPassword && card.pdfPassword !== pdfPassword) {
         card = await tx.card.update({
           where: { id: card.id },
@@ -90,8 +113,7 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
         });
       }
 
-      // 2. Substituir/limpar os itens e taxas do mês de referência ao confirmar uma fatura
-      // (só quando overwriteExisting=true, ou quando não há fatura prévia — evita perda de dados em re-confirmación acidental)
+      // 2. Substituir ou mesclar itens do mês de referência
       const existingInvoice = await tx.invoice.findUnique({
         where: {
           cardId_monthYear: {
@@ -99,8 +121,16 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
             monthYear: monthReferenced,
           },
         },
+        include: { _count: { select: { items: true } } },
       });
-      if (existingInvoice && overwriteExisting) {
+
+      if (existingInvoice && existingInvoice._count.items > 0 && effectiveMode === 'none') {
+        throw new Error(
+          `A fatura de ${monthReferenced} para o cartão ${bankName} (final ${last4Digits}) já foi importada no sistema. Escolha se deseja mesclar as diferenças ou sobrescrever.`
+        );
+      }
+
+      if (existingInvoice && effectiveMode === 'all') {
         await tx.invoiceItem.deleteMany({
           where: { invoiceId: existingInvoice.id },
         });
@@ -112,19 +142,20 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
       let createdItemsCount = 0;
       let projectedInvoicesCount = 0;
 
-      // 3. Processar itens do cartão e projetar parcelas
-      // (skip total quando a fatura já existe e overwrite=false — evita duplicar itens)
-      const skipCurrentMonthItems = existingInvoice !== null && !overwriteExisting;
+      const affectedMonths = new Set<string>();
+      affectedMonths.add(monthReferenced);
 
+      // 3. Processar itens do cartão e projetar parcelas
       for (const item of items) {
         const { description, amount, currentInstallment, totalInstallments } = item;
-        const itemType = (item as any).itemType || classifyItemType(description, amount);
+        const itemType = item.itemType || classifyItemType(description, amount, totalInstallments, bankName);
 
         const monthStartOffset = -(currentInstallment - 1);
         const firstMonth = addMonthsToYearMonth(monthReferenced, monthStartOffset);
 
         for (let k = 1; k <= totalInstallments; k++) {
           const targetMonth = addMonthsToYearMonth(firstMonth, k - 1);
+          affectedMonths.add(targetMonth);
 
           let invoice = await tx.invoice.findUnique({
             where: {
@@ -140,25 +171,65 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
               data: {
                 cardId: card.id,
                 monthYear: targetMonth,
+                dueDate: computeDueDateForMonthYear(targetMonth, payload.dueDate),
                 totalAmount: 0,
+                isPaid: targetMonth === monthReferenced && Boolean(isPaid),
                 declaredAmount: targetMonth === monthReferenced && declaredInvoiceTotal ? declaredInvoiceTotal : null,
               },
             });
             projectedInvoicesCount++;
-          } else if (targetMonth === monthReferenced && declaredInvoiceTotal) {
-            invoice = await tx.invoice.update({
-              where: { id: invoice.id },
-              data: { declaredAmount: declaredInvoiceTotal },
+          } else {
+            const updateData: Prisma.InvoiceUpdateInput = {};
+            if (targetMonth === monthReferenced && declaredInvoiceTotal) {
+              updateData.declaredAmount = declaredInvoiceTotal;
+            }
+            if (targetMonth === monthReferenced && isPaid) {
+              updateData.isPaid = true;
+            }
+            if (payload.dueDate) {
+              updateData.dueDate = computeDueDateForMonthYear(targetMonth, payload.dueDate);
+            }
+            if (Object.keys(updateData).length > 0) {
+              invoice = await tx.invoice.update({
+                where: { id: invoice.id },
+                data: updateData,
+              });
+            }
+          }
+
+          // Se estiver alocando o item na fatura do mês de referência com modo de mesclagem de diferenças
+          if (targetMonth === monthReferenced && effectiveMode === 'differences' && existingInvoice) {
+            const matchingItem = await tx.invoiceItem.findFirst({
+              where: {
+                invoiceId: invoice.id,
+                description,
+                currentInstallment: k,
+                totalInstallments,
+              },
             });
+
+            if (matchingItem) {
+              if (Math.abs(Number(matchingItem.originalAmount) - amount) >= 0.01) {
+                await tx.invoiceItem.update({
+                  where: { id: matchingItem.id },
+                  data: { originalAmount: amount, itemType },
+                });
+              }
+              continue;
+            }
           }
 
-          // Se fatura atual existe e não há overwrite, não duplicar items do mês atual
-          if (skipCurrentMonthItems && targetMonth === monthReferenced) {
-            continue;
-          }
+          // Para o mês de referência ou meses projetados, verificar se o item da parcela já existe
+          const existingItem = await tx.invoiceItem.findFirst({
+            where: {
+              invoiceId: invoice.id,
+              description,
+              currentInstallment: k,
+              totalInstallments,
+            },
+          });
 
-          // Se estiver alocando o item na fatura do mês de referência sendo confirmada, crie um novo item individual.
-          if (targetMonth === monthReferenced) {
+          if (!existingItem) {
             await tx.invoiceItem.create({
               data: {
                 invoiceId: invoice.id,
@@ -167,13 +238,22 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
                 currentInstallment: k,
                 totalInstallments,
                 itemType,
-                extractedBy: (item as any).extractedBy || 'ai',
+                extractedBy: 'ai' as const,
               },
             });
             createdItemsCount++;
+          }
 
-            // Se for encargo, tarifa, multa, juros ou tributo, popula a tabela dedicada invoice_fees
-            if (itemType !== 'PURCHASE' && itemType !== 'CREDIT') {
+          // Se for encargo, tarifa, multa, juros ou tributo, popula a tabela dedicada invoice_fees
+          if (itemType !== 'PURCHASE' && itemType !== 'CREDIT') {
+            const existingFee = await tx.invoiceFee.findFirst({
+              where: {
+                invoiceId: invoice.id,
+                description,
+                amount,
+              },
+            });
+            if (!existingFee) {
               await tx.invoiceFee.create({
                 data: {
                   invoiceId: invoice.id,
@@ -183,37 +263,14 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
                 },
               });
             }
-          } else {
-            const existingItem = await tx.invoiceItem.findFirst({
-              where: {
-                invoiceId: invoice.id,
-                description,
-                currentInstallment: k,
-                totalInstallments,
-                originalAmount: amount,
-              },
-            });
-
-            if (!existingItem) {
-              await tx.invoiceItem.create({
-                data: {
-                  invoiceId: invoice.id,
-                  description,
-                  originalAmount: amount,
-                  currentInstallment: k,
-                  totalInstallments,
-                  itemType,
-                  extractedBy: 'ai',
-                },
-              });
-              createdItemsCount++;
-            }
           }
         }
       }
 
-      // 3.5 Aplicar recorrentes ativos ao mês referenciado ANTES do recálculo de totals
-      await applyRecurringToInvoice(card.id, monthReferenced, tx);
+      // 3.5 Aplicar recorrentes ativos a TODOS os meses criados/afetados deste cartão ANTES do recálculo de totals
+      for (const monthYear of affectedMonths) {
+        await applyRecurringToInvoice(card.id, monthYear, tx);
+      }
 
       // 4. Recalcular o valor total e o desmembramento das faturas deste cartão no MySQL
       await recalculateCardTotals(card.id, tx, {
