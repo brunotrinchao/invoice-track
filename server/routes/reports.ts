@@ -4,6 +4,8 @@ import type { Prisma } from '@prisma/client';
 import { addMonthsToYearMonth, classifyItemType } from '../services/financialEngine.js';
 import { getErrorMessage } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
+import { buildExcelExport } from '../services/exportService.js';
+import { buildPdfReport } from '../services/exportPdf.js';
 
 export const reportsRouter = Router();
 
@@ -406,6 +408,167 @@ reportsRouter.get('/recurring', async (req, res) => {
   } catch (error) {
     logger.error({ err: error }, 'Erro no relatório de recorrentes');
     return res.status(500).json({ error: 'Erro ao gerar relatório de recorrentes: ' + getErrorMessage(error) });
+  }
+});
+
+// Relatório de compras parceladas em aberto: parcelas futuras (monthYear >= mês atual)
+// Filtros: cardIds, banks, from/to (YYYY-MM), status (paid/unpaid)
+reportsRouter.get('/installments', async (req, res) => {
+  try {
+    const { cardIds, banks, from, to, status } = req.query;
+
+    // Resolução cardIds + banks (mesmo padrão dos demais relatórios)
+    let selectedCardIds: string[] = [];
+    if (cardIds && typeof cardIds === 'string' && cardIds.trim().length > 0) {
+      selectedCardIds = cardIds.split(',').map((s) => s.trim()).filter(Boolean);
+    }
+    if (banks && typeof banks === 'string' && banks.trim().length > 0) {
+      const bankNames = banks.split(',').map((s) => s.trim()).filter(Boolean);
+      if (bankNames.length > 0) {
+        const bankCards = await prisma.card.findMany({ where: { bankName: { in: bankNames } }, select: { id: true } });
+        const bankCardIds = bankCards.map((c) => c.id);
+        if (selectedCardIds.length > 0) {
+          const set = new Set(selectedCardIds);
+          selectedCardIds = bankCardIds.filter((id) => set.has(id));
+        } else {
+          selectedCardIds = bankCardIds;
+        }
+        if (selectedCardIds.length === 0) selectedCardIds = ['__no_card_matches__'];
+      }
+    }
+
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    const monthFilter =
+      from && typeof from === 'string' && /^\d{4}-\d{2}$/.test(from)
+        ? { gte: from, ...(to && typeof to === 'string' && /^\d{4}-\d{2}$/.test(to) ? { lte: to } : {}) }
+        : { gte: currentMonth };
+    const statusFilter =
+      status === 'paid' ? { isPaid: true } : status === 'unpaid' ? { isPaid: false } : {};
+    const itemFilter: Prisma.InvoiceItemWhereInput = {
+      itemType: 'PURCHASE',
+      totalInstallments: { gt: 1 },
+      invoice: {
+        monthYear: monthFilter,
+        ...(selectedCardIds.length > 0 ? { cardId: { in: selectedCardIds } } : {}),
+        ...statusFilter,
+      },
+    };
+
+    const futureItems = await prisma.invoiceItem.findMany({
+      where: itemFilter,
+      select: {
+        description: true,
+        originalAmount: true,
+        currentInstallment: true,
+        totalInstallments: true,
+        invoice: { select: { cardId: true, monthYear: true, card: { select: { bankName: true, last4Digits: true } } } },
+      },
+    });
+
+    // Agrupar compra: cardId|description|totalInstallments|originalAmount
+    type GroupKey = string;
+    const groups = new Map<GroupKey, {
+      cardId: string;
+      bankName: string;
+      last4Digits: string;
+      description: string;
+      totalInstallments: number;
+      originalAmount: number;
+      months: { monthYear: string; amount: number }[];
+    }>();
+
+    for (const item of futureItems) {
+      const key = `${item.invoice.cardId}|${item.description}|${item.totalInstallments}|${item.originalAmount}`;
+      let g = groups.get(key);
+      if (!g) {
+        g = {
+          cardId: item.invoice.cardId,
+          bankName: item.invoice.card.bankName,
+          last4Digits: item.invoice.card.last4Digits,
+          description: item.description,
+          totalInstallments: item.totalInstallments,
+          originalAmount: Number(item.originalAmount),
+          months: [],
+        };
+        groups.set(key, g);
+      }
+      g.months.push({ monthYear: item.invoice.monthYear, amount: Number(item.originalAmount) });
+    }
+
+    // Agrupar por cartão, calculando as métricas de cada compra
+    const result = Array.from(
+      new Map(Array.from(groups.values()).map((g) => [g.cardId, { cardId: g.cardId, bankName: g.bankName, last4Digits: g.last4Digits }])).values(),
+    ).map((cg) => ({
+      ...cg,
+      items: Array.from(groups.values())
+        .filter((g) => g.cardId === cg.cardId)
+        .map((g) => {
+          const sorted = [...g.months].sort((a, b) => a.monthYear.localeCompare(b.monthYear));
+          const lastMonth = sorted[sorted.length - 1]?.monthYear ?? '';
+          const remainingCount = g.months.length;
+          const remainingTotal = Math.round(g.months.reduce((s, m) => s + m.amount, 0) * 100) / 100;
+          const monthlyAmount = sorted[0]?.amount ?? 0;
+          const progressTotal = g.totalInstallments;
+          const progressCurrent = Math.max(0, progressTotal - remainingCount);
+          const endingSoon = remainingCount <= 2;
+          return {
+            description: g.description,
+            monthlyAmount,
+            remainingCount,
+            remainingTotal,
+            lastMonth,
+            progressCurrent,
+            progressTotal,
+            endingSoon,
+          };
+        })
+        .sort((a, b) => a.lastMonth.localeCompare(b.lastMonth)),
+    })).sort((a, b) => a.bankName.localeCompare(b.bankName));
+
+    const summary = {
+      openCount: result.reduce((s, cg) => s + cg.items.length, 0),
+      remainingTotal: Math.round(result.reduce((s, cg) => s + cg.items.reduce((x, i) => x + i.remainingTotal, 0), 0) * 100) / 100,
+    };
+
+    return res.json({ success: true, groups: result, summary });
+  } catch (error) {
+    logger.error({ err: error }, 'Erro no relatório de parcelas futuras');
+    return res.status(500).json({ error: 'Erro ao gerar relatório de parcelas: ' + getErrorMessage(error) });
+  }
+});
+
+// ===== Exportações (respeitam filtros: banks, from, to, status) =====
+
+function exportParamsFromQuery(query: { banks?: unknown; from?: unknown; to?: unknown; status?: unknown }) {
+  return {
+    banks: typeof query.banks === 'string' && query.banks.trim() ? query.banks.split(',').map((s) => s.trim()).filter(Boolean) : undefined,
+    from: typeof query.from === 'string' && /^\d{4}-\d{2}$/.test(query.from) ? query.from : undefined,
+    to: typeof query.to === 'string' && /^\d{4}-\d{2}$/.test(query.to) ? query.to : undefined,
+    status: query.status === 'paid' || query.status === 'unpaid' ? query.status : undefined,
+  };
+}
+
+reportsRouter.get('/export/excel', async (req, res) => {
+  try {
+    const buffer = await buildExcelExport(exportParamsFromQuery(req.query));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="dashboard-previsibilidade.xlsx"');
+    return res.send(buffer);
+  } catch (error) {
+    logger.error({ err: error }, 'Erro no export Excel');
+    return res.status(500).json({ error: 'Erro ao gerar Excel: ' + getErrorMessage(error) });
+  }
+});
+
+reportsRouter.get('/export/pdf', async (req, res) => {
+  try {
+    const buffer = await buildPdfReport(exportParamsFromQuery(req.query));
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="relatorio-previsibilidade.pdf"');
+    return res.send(buffer);
+  } catch (error) {
+    logger.error({ err: error }, 'Erro no export PDF');
+    return res.status(500).json({ error: 'Erro ao gerar PDF: ' + getErrorMessage(error) });
   }
 });
 

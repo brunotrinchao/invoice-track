@@ -5,6 +5,25 @@ import { getErrorMessage, throwIfAiRateLimit, AiRateLimitError, parseAiRetryDela
 import { logger } from '../utils/logger.js';
 
 /**
+ * Detecta parcelas compactas na descrição (ex: "TATPARC11/12", "PARC 3/10")
+ * quando a IA marcou o item como 1/1. Exige a palavra PARC (evita falsos
+ * positivos com datas). Retorna null quando não há correção.
+ */
+export function detectInstallmentsFromDescription(
+  description: string,
+  current: number,
+  total: number,
+): { currentInstallment: number; totalInstallments: number } | null {
+  if (current !== 1 || total !== 1) return null; // só corrige "à vista"
+  const m = /PARC\.?\s*(\d{1,2})\/(\d{1,2})(?![\d/])/i.exec(description || '');
+  if (!m) return null;
+  const cur = parseInt(m[1], 10);
+  const tot = parseInt(m[2], 10);
+  if (!tot || tot < 2 || tot > 48 || cur < 1 || cur > tot) return null;
+  return { currentInstallment: cur, totalInstallments: tot };
+}
+
+/**
  * Núcleo do prompt de extração (compartilhado pelos dois modos de envio:
  * PDF direto multimodal e texto extraído via pdf-parse).
  */
@@ -16,7 +35,12 @@ $BANK_SECTIONS
 - "monthReferenced": Mês de referência em formato YYYY-MM correspondente ao mês de vencimento da fatura. Exemplo: se a data de vencimento for em Setembro (10/09/2026), o "monthReferenced" DEVE SER "2026-09". Se o vencimento foi 17/08/2026 (Agosto), o "monthReferenced" DEVE SER "2026-08". Se o vencimento foi 10/01/2026 (Janeiro), o "monthReferenced" DEVE SER "2026-01".
 - "dueDate": A DATA DE VENCIMENTO da fatura, exatamente como impressa no PDF, em formato YYYY-MM-DD. Procure por "Vencimento", "Data de vencimento", "Total a pagar até", "Pague até". Exemplo: "Vencimento: 17/08/2026" → "2026-08-17". NUNCA invente a data: se o PDF não informar vencimento, use null.
 - "totalAmount": total declarado da seção do cartão no PDF.
-- "currentInstallment" e "totalInstallments": se for parcela ex 3/5, use 3 e 5. Se à vista, use 1 e 1.
+- "currentInstallment" e "totalInstallments": se for parcela ex 3/5, use 3 e 5. Se à vista, use 1 e 1. Formatos nas linhas:
+  - "PARC 3/10" ou "PARC.05/12" = parcela 3 de 10 / 5 de 12.
+  - COMPACTO sem espaço: "TATPARC11/12" ou "XXXPARC05/12" = parcela 11 de 12.
+  - "12x R$ 50,00" → total = 12. À vista "1x" = 1/1. NÃO confunda parcela com datas (dd/mm/yyyy).
+  - O "amount" é o valor da PARCELA MENSAL (não o total da compra).
+- UMA LINHA = UM ITEM. NUNCA agrupe múltiplas linhas de compra em um único item com o total da fatura.
 - ITENS DE CRÉDITO, ESTORNOS, REEMBOLSOS E DESCONTOS:
   Extraia TODOS os itens de crédito/estorno/reembolso/desconto/ajuste a crédito do cartão.
   Se o lançamento for um crédito (ex: "Crédito concedido", "Estorno", "Reembolso", "Desconto", "Cashback", "Devolução" ou com sinal "-R$"), coloque "amount" como NÚMERO NEGATIVO (ex: -30.28).
@@ -162,11 +186,14 @@ export function processAiJson(responseText: string, extractedBy: 'gemini' | 'gpt
             if (isCredit && finalAmount > 0) {
               finalAmount = -Math.abs(finalAmount);
             }
+            const baseCur = parseInt(String(item.currentInstallment)) || 1;
+            const baseTot = parseInt(String(item.totalInstallments)) || 1;
+            const fix = detectInstallmentsFromDescription(descStr, baseCur, baseTot);
             return {
               description: descStr,
               amount: finalAmount,
-              currentInstallment: parseInt(String(item.currentInstallment)) || 1,
-              totalInstallments: parseInt(String(item.totalInstallments)) || 1,
+              currentInstallment: fix ? fix.currentInstallment : baseCur,
+              totalInstallments: fix ? fix.totalInstallments : baseTot,
             };
           })
         : [],

@@ -3,7 +3,7 @@
     <header>
       <div>
         <h1 class="text-2xl font-bold text-highlighted">Faturas por Banco</h1>
-        <p class="text-sm text-muted">Selecione uma fatura de banco para ver os detalhes dos cartões, compras, pagar ou excluir</p>
+        <p class="text-sm text-muted">Clique no checkbox para ações em lote (pagar/excluir) ou no cartão para abrir detalhes</p>
       </div>
     </header>
 
@@ -71,6 +71,22 @@
       >
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
+            <button
+              type="button"
+              role="checkbox"
+              :aria-checked="selectedKeys.has(bankInv.id)"
+              :aria-label="`Selecionar fatura ${bankInv.bankName} ${formatMonthYear(bankInv.monthYear)}`"
+              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-[background-color,border-color,transform] duration-150 active:scale-90"
+              :class="selectedKeys.has(bankInv.id) ? 'bg-brand-500 border-brand-500' : 'bg-elevated border-accented hover:border-brand-400'"
+              @click.stop="toggleSelect(bankInv.id)"
+            >
+              <span
+                v-if="selectedKeys.has(bankInv.id)"
+                class="flex h-full w-full items-center justify-center text-white"
+              >
+                <Icon name="lucide:check" class="h-4 w-4" />
+              </span>
+            </button>
             <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
               <UiBankLogo :bank-name="bankInv.bankName" size-class="h-6 w-6" />
             </div>
@@ -107,12 +123,84 @@
       </div>
     </div>
 
+    <!-- Barra de ações em lote (≥1 seleção) -->
+    <div
+      v-if="selectedCount > 0"
+      class="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4 pointer-events-none"
+    >
+      <div class="pointer-events-auto flex flex-wrap items-center gap-1.5 rounded-2xl border border-default glass-card px-2.5 py-2 shadow-2xl bar-anim">
+        <button
+          type="button"
+          class="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-extrabold text-default hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          @click="toggleSelectAll"
+        >
+          <Icon :name="allVisibleSelected ? 'lucide:check-check' : 'lucide:list-checks'" class="h-4 w-4" />
+          {{ allVisibleSelected ? 'Remover todas' : `Selecionar todas (${filteredBankInvoices.length})` }}
+        </button>
+        <span class="h-4 w-px bg-default" />
+        <button
+          type="button"
+          :disabled="bulkBusy"
+          class="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-extrabold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer disabled:opacity-50"
+          @click="onBulkPay"
+        >
+          <Icon :name="bulkBusy ? 'lucide:loader-2' : 'lucide:check'" :class="bulkBusy ? 'h-4 w-4 animate-spin' : 'h-4 w-4'" />
+          Pagar
+        </button>
+        <button
+          type="button"
+          :disabled="bulkBusy"
+          class="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs font-extrabold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer disabled:opacity-50"
+          @click="openBulkDeleteConfirm"
+        >
+          <Icon name="lucide:trash-2" class="h-4 w-4" />
+          Excluir
+        </button>
+        <span class="h-4 w-px bg-default" />
+        <button
+          type="button"
+          class="flex items-center justify-center rounded-xl p-1.5 text-muted hover:text-slate-950 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5 transition-colors cursor-pointer"
+          :aria-label="`Limpar ${selectedCount} seleção(ões)`"
+          @click="clearSelection"
+        >
+          <Icon name="lucide:x" class="h-4 w-4" />
+        </button>
+      </div>
+    </div>
+
     <InvoicesInvoiceDetailModal
       :open="selectedBankInvoice !== null"
       :bank-invoice="selectedBankInvoice"
       :cards="cardStore.cards"
       @close="selectedBankInvoice = null"
       @updated="onInvoiceUpdated"
+    />
+
+    <!-- Confirmação destrutiva: excluir faturas em lote -->
+    <UiAppModal
+      :open="confirmDeleteOpen"
+      title="Excluir faturas selecionadas?"
+      description="As faturas selecionadas e seus itens/taxas serão removidos. Não pode ser desfeito."
+      max-width="md"
+      @close="closeBulkDeleteConfirm"
+    >
+      <div class="flex flex-col gap-4">
+        <div class="rounded-xl bg-red-500/10 border border-red-500/25 px-4 py-3 text-xs text-red-600 dark:text-red-400 font-bold flex items-start gap-2">
+          <Icon name="lucide:alert-triangle" class="h-4 w-4 shrink-0 mt-0.5" />
+          <span>Serão excluídas {{ pendingDeleteCount }} fatura(s) — irreversível. Para recuperar, reimporte os PDFs.</span>
+        </div>
+        <div class="flex items-center justify-end gap-2">
+          <UiAppButton variant="ghost" @click="closeBulkDeleteConfirm">Cancelar</UiAppButton>
+          <UiAppButton variant="danger" :disabled="bulkBusy" @click="onBulkDelete">Apagar {{ pendingDeleteCount }} fatura(s)</UiAppButton>
+        </div>
+      </div>
+    </UiAppModal>
+
+    <UiAppToast
+      :open="toastOpen"
+      :message="toastMessage"
+      :tone="toastTone"
+      @close="toastOpen = false"
     />
   </div>
 </template>
@@ -126,7 +214,7 @@ import { useCardStore } from '~/stores/cardStore'
 import { groupInvoicesByBank, getInvoiceStatusInfo, formatDateShort } from '~/utils/bankInvoice'
 
 const cardStore = useCardStore()
-const { list } = useInvoices()
+const { list, bulkDelete, bulkPay } = useInvoices()
 
 const rawInvoices = ref<Invoice[]>([])
 const loading = ref(true)
@@ -148,6 +236,11 @@ const from = ref(currentMonth)
 const to = ref(currentMonth)
 
 const selectedBankInvoice = ref<BankInvoice | null>(null)
+
+// Seleção em lote
+const selectedKeys = ref<Set<string>>(new Set())
+const bulkBusy = ref(false)
+const confirmDeleteOpen = ref(false)
 
 async function load() {
   loading.value = true
@@ -225,6 +318,90 @@ const filteredBankInvoices = computed(() => {
     }
   })
 })
+
+// Computeds de seleção
+const selectedCount = computed(() => selectedKeys.value.size)
+const allVisibleSelected = computed(() =>
+  filteredBankInvoices.value.length > 0 && filteredBankInvoices.value.every(g => selectedKeys.value.has(g.id)),
+)
+
+const pendingDeleteCount = computed(() => collectIdsFromSelection().length)
+
+function toggleSelect(id: string) {
+  const next = new Set(selectedKeys.value)
+  next.has(id) ? next.delete(id) : next.add(id)
+  selectedKeys.value = next
+}
+
+function clearSelection() {
+  selectedKeys.value = new Set()
+}
+
+function toggleSelectAll() {
+  if (allVisibleSelected.value) clearSelection()
+  else selectedKeys.value = new Set(filteredBankInvoices.value.map(g => g.id))
+}
+
+function collectIdsFromSelection(): string[] {
+  const ids: string[] = []
+  for (const g of allBankInvoices.value) {
+    if (selectedKeys.value.has(g.id)) ids.push(...g.invoices.map(i => i.id))
+  }
+  return ids
+}
+
+watch([selectedBanks, selectedStatus, selectedSort, from, to], () => clearSelection())
+
+async function onBulkPay() {
+  bulkBusy.value = true
+  try {
+    await bulkPay(collectIdsFromSelection(), true)
+    showToast(`Faturas marcadas como pagas.`, 'success')
+    clearSelection()
+    await load()
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : 'Erro ao pagar em lote.', 'error')
+  } finally {
+    bulkBusy.value = false
+  }
+}
+
+async function onBulkDelete() {
+  bulkBusy.value = true
+  try {
+    await bulkDelete(collectIdsFromSelection())
+    showToast('Faturas excluídas.', 'success')
+    confirmDeleteOpen.value = false
+    clearSelection()
+    await load()
+  } catch (e) {
+    showToast(e instanceof Error ? e.message : 'Erro ao excluir em lote.', 'error')
+  } finally {
+    bulkBusy.value = false
+  }
+}
+
+function openBulkDeleteConfirm() {
+  confirmDeleteOpen.value = true
+}
+
+function closeBulkDeleteConfirm() {
+  confirmDeleteOpen.value = false
+}
+
+// Toast
+const toastOpen = ref(false)
+const toastMessage = ref('')
+const toastTone = ref<'success' | 'error' | 'info'>('success')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(msg: string, tone: 'success' | 'error' | 'info' = 'success') {
+  toastMessage.value = msg
+  toastTone.value = tone
+  toastOpen.value = true
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { toastOpen.value = false }, 4000)
+}
 
 function openDetail(bankInv: BankInvoice) {
   selectedBankInvoice.value = bankInv

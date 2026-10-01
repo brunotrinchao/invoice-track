@@ -1,11 +1,10 @@
 <template>
   <button
     :type="type"
-    :disabled="disabled || loading"
     :class="classes"
+    :disabled="isDisabled || loading"
     @click="onClick"
   >
-    <span v-if="loading" class="mr-2 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
     <slot />
   </button>
 </template>
@@ -24,21 +23,26 @@ const sizes = {
   lg: 'px-5 py-2.5 text-base rounded-xl',
 } as const
 
-const props = defineProps<{
-  variant?: keyof typeof variants
-  size?: keyof typeof sizes
-  type?: 'button' | 'submit' | 'reset'
-  disabled?: boolean
-  loading?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    variant?: keyof typeof variants
+    size?: keyof typeof sizes
+    type?: 'button' | 'submit' | 'reset'
+    disabled?: boolean
+    loading?: boolean
+  }>(),
+  { variant: 'primary', size: 'md', type: 'button', disabled: false, loading: false },
+)
 
 const emit = defineEmits<{ click: [event: MouseEvent] }>()
 
-const { variant = 'primary', size = 'md', type = 'button', disabled = false, loading = false } = props
-
 function onClick(event: MouseEvent) {
-  if (!disabled && !loading) emit('click', event)
+  if (!props.disabled && !props.loading) emit('click', event)
 }
 
-const classes = `${variants[variant]} ${sizes[size]} inline-flex cursor-pointer items-center gap-2 font-medium transition-[background-color,color,border-color,box-shadow,transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500`
+const classes = computed(
+  () =>
+    `${variants[props.variant]} ${sizes[props.size]} inline-flex cursor-pointer items-center gap-2 font-medium transition-[background-color,color,border-color,box-shadow,transform,opacity] duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500`,
+)
+const isDisabled = computed(() => props.disabled)
 </script>

@@ -154,9 +154,10 @@ function render() {
     window.addEventListener('resize', onWindowResize)
   }
   try {
-    // Update incremental (sem clear): ECharts anima o diff entre estados —
-    // transições de dados suaves nos filtros; entrada já anima no init.
-    chart.value.setOption(buildOption(), { notMerge: false })
+    // Update incremental: anima o diff dos dados E substitui o conjunto de
+    // séries (replaceMerge) — trocar Total/cartões/bancos não deixa séries
+    // antigas remanescentes por merge de índice.
+    chart.value.setOption(buildOption(), { replaceMerge: ['series'] })
   } catch (e) {
     console.error('[BaseChart] setOption error', props.type, e)
   }

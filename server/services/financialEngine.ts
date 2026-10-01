@@ -173,7 +173,9 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
                 monthYear: targetMonth,
                 dueDate: computeDueDateForMonthYear(targetMonth, payload.dueDate),
                 totalAmount: 0,
-                isPaid: targetMonth === monthReferenced && Boolean(isPaid),
+                // Faturas anteriores (parcelas retroativas) também nascem pagas: o dinheiro
+                // delas já saiu — estava na fatura anterior que o usuário pagou.
+                isPaid: Boolean(isPaid) && targetMonth <= monthReferenced,
                 declaredAmount: targetMonth === monthReferenced && declaredInvoiceTotal ? declaredInvoiceTotal : null,
               },
             });

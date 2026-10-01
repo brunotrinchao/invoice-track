@@ -66,5 +66,14 @@ export function useInvoices() {
     if (!res.ok) throw new Error(`POST /api/invoices/bulk-delete -> ${res.status}`)
   }
 
-  return { list, getInvoice, remove, togglePaid, updateInvoice, bulkDelete }
+  async function bulkPay(ids: string[], isPaid: boolean): Promise<void> {
+    const res = await fetch(apiUrl('/api/invoices/bulk-pay'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids, isPaid }),
+    })
+    if (!res.ok) throw new Error(`POST /api/invoices/bulk-pay -> ${res.status}`)
+  }
+
+  return { list, getInvoice, remove, togglePaid, updateInvoice, bulkDelete, bulkPay }
 }

@@ -103,7 +103,7 @@
           <UiAppButton variant="ghost" @click="closeConfirm">Cancelar</UiAppButton>
           <UiAppButton
             variant="danger"
-            :disabled="confirmText !== 'LIMPAR TUDO' || clearing"
+            :disabled="confirmText.trim().toUpperCase() !== 'LIMPAR TUDO' || clearing"
             @click="clearDatabase"
           >{{ clearing ? 'Limpando…' : 'Apagar tudo' }}</UiAppButton>
         </div>
@@ -126,7 +126,6 @@ import type { BankInstruction } from '~/types/BankInstruction'
 
 /** Total de registros p/ o header da seção base. */
 const totalRecords = computed(() => statusRows.value.reduce((sum, r) => sum + r.value, 0))
-import type { BankInstruction } from '~/types/BankInstruction'
 
 definePageMeta({ title: 'Configurações' })
 
@@ -172,7 +171,7 @@ function closeConfirm() {
 }
 
 async function clearDatabase() {
-  if (confirmText.value !== 'LIMPAR TUDO') return
+  if (confirmText.value.trim().toUpperCase() !== 'LIMPAR TUDO') return
   clearing.value = true
   clearError.value = ''
   try {

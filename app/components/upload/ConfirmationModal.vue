@@ -271,6 +271,15 @@
                 />
                 <button
                   type="button"
+                  aria-label="Transformar tarifa em compra"
+                  title="Transformar em compra"
+                  class="rounded-xl p-1.5 text-brand-600 dark:text-brand-400 hover:bg-brand-500/10 transition-colors cursor-pointer"
+                  @click="convertFeeToPurchase(idx)"
+                >
+                  <Icon name="lucide:shopping-cart" class="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
                   aria-label="Remover tarifa"
                   class="rounded-xl p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                   @click="removeFeeItem(idx)"
@@ -322,6 +331,15 @@
                   aria-label="Valor do crédito"
                   class="w-24 rounded-xl border border-accented bg-default px-3 py-1.5 text-xs text-highlighted font-mono font-extrabold focus:border-brand-500 focus:outline-none"
                 />
+                <button
+                  type="button"
+                  aria-label="Transformar crédito em compra"
+                  title="Transformar em compra"
+                  class="rounded-xl p-1.5 text-brand-600 dark:text-brand-400 hover:bg-brand-500/10 transition-colors cursor-pointer"
+                  @click="convertCreditToPurchase(idx)"
+                >
+                  <Icon name="lucide:shopping-cart" class="h-4 w-4" />
+                </button>
                 <button
                   type="button"
                   aria-label="Remover crédito"
@@ -649,6 +667,38 @@ function toggleCreditSelection(idx: number) {
 
 function removeCreditItem(idx: number) {
   invoiceCredits.value.splice(idx, 1)
+}
+
+/** Crédito/desconto na verdade é uma compra — move p/ lista de compras do cartão ativo (1×, valor positivo) */
+function convertCreditToPurchase(idx: number) {
+  const cred = invoiceCredits.value[idx]
+  if (!cred) return
+  const val = Math.abs(Number(cred.originalAmount || 0))
+  currentCard.value?.items.push({
+    description: cred.description,
+    originalAmount: val,
+    amount: val,
+    currentInstallment: 1,
+    totalInstallments: 1,
+    selected: true,
+  })
+  invoiceCredits.value.splice(idx, 1)
+}
+
+/** Tarifa/encargo na verdade é uma compra — move p/ lista de compras do cartão ativo (1×) */
+function convertFeeToPurchase(idx: number) {
+  const fee = invoiceFees.value[idx]
+  if (!fee) return
+  const val = Math.abs(Number(fee.originalAmount || 0))
+  currentCard.value?.items.push({
+    description: fee.description,
+    originalAmount: val,
+    amount: val,
+    currentInstallment: 1,
+    totalInstallments: 1,
+    selected: true,
+  })
+  invoiceFees.value.splice(idx, 1)
 }
 
 function addInvoiceCreditItem(defaultCreditAmount?: number) {

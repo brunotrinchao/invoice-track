@@ -77,6 +77,11 @@ function onInvoiceParsed(response: ParseResponse, file: File) {
 function onModalClose() {
   parseResponse.value = null
   reviewMeta.value = null
+  // Cancelar revisão ≠ abortar o lote: pula esta fatura e retoma a fila
+  if (uploaderRef.value?.hasPending?.()) {
+    showToast('Revisão cancelada — fila continua com o próximo PDF.', 'info')
+    uploaderRef.value.resumeQueue()
+  }
 }
 
 async function onConfirmedSave() {

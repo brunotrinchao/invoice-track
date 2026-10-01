@@ -161,6 +161,35 @@ invoicesRouter.post('/bulk-delete', async (req, res) => {
   }
 });
 
+// Pagamento em lote: marca várias faturas como pago/não pago (updateMany; isPaid não afeta totals)
+const bulkPaySchema = z.object({
+  ids: z.array(z.string().min(1)).min(1),
+  isPaid: z.boolean(),
+});
+
+invoicesRouter.post('/bulk-pay', async (req, res) => {
+  try {
+    const parsed = bulkPaySchema.safeParse(req.body);
+    if (!parsed.success) {
+      return respondError(res, 400, 'Body inválido: ids deve ser array não vazio e isPaid boolean.');
+    }
+    const { ids, isPaid } = parsed.data;
+
+    const result = await prisma.invoice.updateMany({
+      where: { id: { in: ids } },
+      data: { isPaid },
+    });
+
+    return res.json({
+      success: true,
+      message: `${result.count} fatura(s) marcada(s) como ${isPaid ? 'pagas' : 'não pagas'}.`,
+      count: result.count,
+    });
+  } catch (error) {
+    return res.status(500).json({ error: 'Erro no pagamento em lote: ' + getErrorMessage(error) });
+  }
+});
+
 // Alterar status Pago -> Não Pago de uma fatura
 const togglePaidSchema = z.object({ isPaid: z.boolean().optional() });
 
