@@ -12,6 +12,8 @@ export interface ParsedInvoiceItem {
   totalInstallments: number
   purchaseDate?: string
   extractedBy?: 'ai' | 'regex'
+  /** Marcado como recorrente na revisão */
+  recurring?: boolean
   itemType?: string
   /** Solo en el modal de confirmación (human-in-the-loop) */
   selected?: boolean

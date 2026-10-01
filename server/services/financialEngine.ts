@@ -2,7 +2,7 @@ import { prisma } from '../db.js';
 import type { Prisma } from '@prisma/client';
 import { ParsedCardTransactions, ExtractedInvoiceItem } from './parsers/InvoiceParserInterface.js';
 import { addMonthsToYearMonth, classifyItemType, recalculateCardTotals } from './cardTotals.js';
-import { applyRecurringToInvoice } from './recurringService.js';
+import { applyRecurringToInvoice, createRecurring } from './recurringService.js';
 import { normalizeBankName } from './bankUtils.js';
 import { logger } from '../utils/logger.js';
 
@@ -79,6 +79,15 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
 
   return await prisma.$transaction(async (tx) => {
     const processedCardsResult = [];
+    // Itens marcados como recorrentes na revisão — criados APÓS a transação
+    // (createRecurring usa conexão própria; criando dentro do tx o backfill
+    // não veria o item recém-criado e duplicaria).
+    const recurringCreations: {
+      cardId: string;
+      description: string;
+      amount: number;
+      startMonthYear: string;
+    }[] = [];
 
     for (const cardData of cardsList) {
       const bankName = normalizeBankName(cardData.bankName);
@@ -149,6 +158,16 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
       for (const item of items) {
         const { description, amount, currentInstallment, totalInstallments } = item;
         const itemType = item.itemType || classifyItemType(description, amount, totalInstallments, bankName);
+
+        // Recorrente: só compra à vista positiva (modelo = 1/1 mensal)
+        if (item.recurring && totalInstallments === 1 && amount > 0) {
+          recurringCreations.push({
+            cardId: card.id,
+            description,
+            amount,
+            startMonthYear: monthReferenced,
+          });
+        }
 
         const monthStartOffset = -(currentInstallment - 1);
         const firstMonth = addMonthsToYearMonth(monthReferenced, monthStartOffset);
@@ -284,12 +303,25 @@ export async function processInvoiceConfirmation(payload: ConfirmInvoicePayload)
         card,
         createdItemsCount,
         projectedInvoicesCount,
+        recurringCreations,
       });
     }
 
     return {
       processedCardsResult,
       targetMonth: monthReferenced,
+      recurringCreations,
     };
+  }).then(async (result) => {
+    // Pós-transação: regras recorrentes marcadas na revisão da fatura
+    for (const r of result.recurringCreations) {
+      try {
+        await createRecurring(r);
+        logger.info({ description: r.description }, 'Recorrente criado a partir da revisão');
+      } catch (e) {
+        logger.warn({ err: e, description: r.description }, 'Falha ao criar recorrente (fatura salva normalmente)');
+      }
+    }
+    return result;
   });
 }

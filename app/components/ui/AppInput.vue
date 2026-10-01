@@ -1,16 +1,16 @@
 <template>
   <div class="w-full">
     <label
-      v-if="label"
+      v-if="props.label"
       :for="inputId"
       class="mb-1 block text-xs font-extrabold text-muted"
-    >{{ label }}</label>
+    >{{ props.label }}</label>
     <input
       :id="inputId"
-      :type="type"
-      :value="modelValue"
-      :placeholder="placeholder"
-      :disabled="disabled"
+      :type="props.type || 'text'"
+      :value="props.modelValue ?? ''"
+      :placeholder="props.placeholder ?? ''"
+      :disabled="props.disabled ?? false"
       :class="inputClasses"
       @input="onInput"
       @change="onChange"
@@ -33,7 +33,7 @@ const emit = defineEmits<{
   change: [event: Event]
 }>()
 
-const { modelValue = '', type = 'text', placeholder = '', disabled = false, name = undefined, label = undefined } = props
+const { type = 'text', name = undefined } = props
 
 const inputId = name || `app-input-${Math.random().toString(36).slice(2, 8)}`
 

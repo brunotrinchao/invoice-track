@@ -34,19 +34,40 @@
         :card="card"
         :selected="selectedCardIds.includes(card.id)"
         @delete="onDeleteCard"
+        @recurring="onOpenRecurring"
       />
     </div>
+
+    <CardsCardRecurringDrawer
+      :open="recurringCard !== null"
+      :card="recurringCard"
+      @close="recurringCard = null"
+      @changed="onRecurringChanged"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { useCardStore } from '~/stores/cardStore'
+import type { Card } from '~/types/Card'
 
 const cardStore = useCardStore()
 
 const selectedCardIds = ref<string[]>([])
+const recurringCard = ref<Card | null>(null)
 
-await cardStore.fetchAll()
+function onOpenRecurring(cardId: string) {
+  recurringCard.value = cardStore.cards.find(c => c.id === cardId) ?? null
+}
+
+function onRecurringChanged() {
+  // Recorrentes criados propagam itens p/ faturas abertas — cartões/dados podem ter mudado
+  void cardStore.fetchAll()
+}
+
+onMounted(() => {
+  void cardStore.fetchAll()
+})
 
 async function onDeleteCard(cardId: string) {
   const ok = typeof window !== 'undefined' && window.confirm(

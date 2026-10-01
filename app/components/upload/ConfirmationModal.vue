@@ -211,14 +211,26 @@
                     </div>
                   </td>
                   <td class="py-2.5 px-3.5 text-right">
-                    <button
-                      type="button"
-                      aria-label="Remover compra"
-                      class="rounded-xl p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
-                      @click="removeCardItem(activeCardIndex, idx)"
-                    >
-                      <Icon name="lucide:trash-2" class="h-4 w-4" />
-                    </button>
+                    <div class="flex items-center justify-end gap-1">
+                      <button
+                        type="button"
+                        class="rounded-xl p-1.5 transition-colors cursor-pointer"
+                        :class="item.recurring ? 'bg-brand-500/15 text-brand-600 dark:text-brand-400' : 'text-muted hover:text-brand-500 hover:bg-brand-500/10'"
+                        :aria-label="`Marcar ${item.description} como recorrente`"
+                        :title="item.recurring ? 'Recorrente — cobra todo mês (clique p/ remover)' : 'Marcar como recorrente'"
+                        @click="toggleItemRecurring(activeCardIndex, idx)"
+                      >
+                        <Icon name="lucide:repeat" class="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Remover compra"
+                        class="rounded-xl p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+                        @click="removeCardItem(activeCardIndex, idx)"
+                      >
+                        <Icon name="lucide:trash-2" class="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               </tbody>
@@ -619,6 +631,14 @@ function removeCardItem(cardIdx: number, itemIdx: number) {
   cards.value[cardIdx].items.splice(itemIdx, 1)
 }
 
+/** Marca a compra como recorrente (regra replicada em faturas futuras) — só à vista */
+function toggleItemRecurring(cardIdx: number, itemIdx: number) {
+  const item = cards.value[cardIdx].items[itemIdx]
+  if (!item) return
+  if (Number(item.totalInstallments || 1) > 1) return // recorrente = compra à vista
+  item.recurring = !item.recurring
+}
+
 function addCardPurchaseItem(cardIdx: number) {
   cards.value[cardIdx].items.push({
     description: 'Compra Manual no Cartão',
@@ -783,6 +803,7 @@ async function handleConfirmSave() {
             currentInstallment: Number(i.currentInstallment || 1),
             totalInstallments: Number(i.totalInstallments || 1),
             itemType: i.itemType || getItemCategory(i.description, val),
+            recurring: Boolean(i.recurring) && Number(i.totalInstallments || 1) === 1 && val > 0,
           }
         })
 

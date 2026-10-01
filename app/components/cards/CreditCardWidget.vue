@@ -26,6 +26,13 @@
           />
         </span>
         <button
+          class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white/80 transition-colors hover:bg-brand-500 hover:text-white cursor-pointer"
+          :aria-label="`Recorrentes do cartão ${card.bankName}`"
+          @click="emit('recurring', card.id)"
+        >
+          <Icon name="lucide:repeat" class="h-3.5 w-3.5" />
+        </button>
+        <button
           class="flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-white/80 transition-colors hover:bg-red-500 hover:text-white cursor-pointer"
           :aria-label="`Excluir cartão ${card.bankName} •••• ${card.last4Digits}`"
           @click="emit('delete', card.id)"
@@ -67,7 +74,7 @@ const props = defineProps<{
   selected?: boolean
 }>()
 
-const emit = defineEmits<{ delete: [cardId: string] }>()
+const emit = defineEmits<{ delete: [cardId: string]; recurring: [cardId: string] }>()
 
 const gradient = computed(() => {
   const [from, to] = BANK_COLORS[props.card.bankName] ?? ['#334155', '#1e293b']

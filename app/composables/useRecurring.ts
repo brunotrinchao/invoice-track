@@ -55,5 +55,22 @@ export function useRecurring() {
     return res.json() as Promise<RecurringItem>
   }
 
-  return { list, createRecurring, createRecurringFromItem, deleteRecurring, setActive }
+  async function listByCard(cardId: string): Promise<RecurringItem[]> {
+    const res = await fetch(apiUrl(`/api/recurring?cardId=${encodeURIComponent(cardId)}`))
+    if (!res.ok) throw new Error(`GET /api/recurring?cardId -> ${res.status}`)
+    const data = (await res.json()) as { success: boolean; recurringItems: RecurringItem[] }
+    return data.recurringItems ?? []
+  }
+
+  async function updateRecurring(id: string, input: Partial<RecurringItemInput>): Promise<RecurringItem> {
+    const res = await fetch(apiUrl(`/api/recurring/${id}`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    })
+    if (!res.ok) throw new Error(`PATCH /api/recurring/${id} -> ${res.status}`)
+    return res.json() as Promise<RecurringItem>
+  }
+
+  return { list, listByCard, createRecurring, updateRecurring, createRecurringFromItem, deleteRecurring, setActive }
 }

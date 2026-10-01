@@ -6,6 +6,8 @@ export interface ExtractedInvoiceItem {
   purchaseDate?: string;
   cardLast4?: string;
   itemType?: 'PURCHASE' | 'FEE' | 'FINE' | 'INTEREST' | 'TAX' | 'CREDIT';
+  /** Marca a compra como recorrente (cria regra que replica em faturas futuras) */
+  recurring?: boolean;
 }
 
 export interface ParsedCardTransactions {
