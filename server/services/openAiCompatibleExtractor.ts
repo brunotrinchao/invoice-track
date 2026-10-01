@@ -65,7 +65,7 @@ async function callChatOnce(
       'Content-Type': 'application/json',
       // OpenRouter pede estes headers para routing/ranking:
       'HTTP-Referer': 'http://localhost:3000',
-      'X-Title': 'Invoice Track',
+      'X-Title': 'Nossos Cartões',
     },
     body: JSON.stringify({
       model: modelName,

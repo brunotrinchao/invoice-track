@@ -7,7 +7,7 @@
 
     <button
       type="button"
-      class="flex w-full items-center justify-between gap-2 rounded-xl border border-accented bg-elevated px-3.5 py-2.5 text-sm font-extrabold transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 cursor-pointer"
+      class="flex w-auto self-start items-center justify-between gap-2 rounded-xl border border-accented bg-elevated px-3.5 py-2.5 text-sm font-extrabold transition-colors focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/30 cursor-pointer"
       :class="open ? 'text-brand-700 dark:text-brand-400' : 'text-default'"
       :aria-expanded="open"
       @click="toggleOpen"
@@ -32,11 +32,11 @@
       <label
         v-for="opt in options"
         :key="opt.value"
-        class="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-extrabold text-default transition-colors hover:bg-slate-100 dark:hover:bg-white/10"
+        class="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-3 text-sm font-extrabold text-default transition-colors hover:bg-slate-100 dark:hover:bg-white/10"
       >
         <input
           type="checkbox"
-          class="h-3.5 w-3.5 rounded accent-brand-500 cursor-pointer"
+          class="h-4.5 w-4.5 rounded accent-brand-500 cursor-pointer"
           :checked="isSelected(opt.value)"
           @change="toggle(opt.value)"
         >

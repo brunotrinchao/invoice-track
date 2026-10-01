@@ -36,7 +36,7 @@ export default defineNuxtConfig({
 
   app: {
     head: {
-      title: 'Invoice Track',
+      title: 'Nossos Cartões',
       meta: [
         { name: 'description', content: 'Previsibilidade de faturas de cartão de crédito' },
       ],

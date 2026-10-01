@@ -1,10 +1,20 @@
 <template>
   <div class="flex flex-col gap-6">
-    <header>
+    <header class="flex items-start justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold text-highlighted">Faturas por Banco</h1>
-        <p class="text-sm text-muted">Clique no checkbox para ações em lote (pagar/excluir) ou no cartão para abrir detalhes</p>
+        <p class="text-sm text-muted">Clique no cartão para abrir detalhes; use "Selecionar" para ações em lote</p>
       </div>
+      <button
+        type="button"
+        class="flex shrink-0 items-center gap-2 rounded-xl border border-accented bg-elevated px-3.5 py-2.5 text-xs font-extrabold text-slate-800 dark:text-slate-200 transition-[background-color,color,transform] active:scale-[0.97] hover:bg-slate-200 dark:hover:bg-white/5 cursor-pointer"
+        :class="selectMode ? '!text-brand-600 dark:!text-brand-400 border-brand-500/40 bg-brand-500/10' : ''"
+        :aria-pressed="selectMode"
+        @click="toggleSelectMode"
+      >
+        <Icon :name="selectMode ? 'lucide:x' : 'lucide:check-square'" class="h-4 w-4" />
+        {{ selectMode ? 'Cancelar' : 'Selecionar' }}
+      </button>
     </header>
 
     <!-- Filters: bank, period (month/year), status -->
@@ -57,14 +67,14 @@
     <!-- Invoice Cards by Bank -->
     <div
       v-else
-      class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+      class="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3"
     >
       <div
         v-for="bankInv in filteredBankInvoices"
         :key="bankInv.id"
         role="button"
         tabindex="0"
-        class="flex flex-col justify-between rounded-2xl glass-card p-5 text-left transition-[background-color,color,border-color,box-shadow,transform,opacity] hover:border-brand-500/40 hover:bg-dark-card/90 cursor-pointer"
+        class="flex flex-col justify-between rounded-2xl glass-card p-4 text-left transition-[background-color,color,border-color,box-shadow,transform,opacity] hover:border-brand-500/40 hover:bg-dark-card/90 active:scale-[0.98] active:border-brand-500/50 sm:p-5 cursor-pointer"
         :aria-label="`Abrir fatura do ${bankInv.bankName} ${formatMonthYear(bankInv.monthYear)}`"
         @click="openDetail(bankInv)"
         @keydown.enter="openDetail(bankInv)"
@@ -72,17 +82,18 @@
         <div class="flex items-start justify-between gap-3">
           <div class="flex items-center gap-3 min-w-0">
             <button
+              v-if="selectMode"
               type="button"
               role="checkbox"
               :aria-checked="selectedKeys.has(bankInv.id)"
               :aria-label="`Selecionar fatura ${bankInv.bankName} ${formatMonthYear(bankInv.monthYear)}`"
-              class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition-[background-color,border-color,transform] duration-150 active:scale-90"
-              :class="selectedKeys.has(bankInv.id) ? 'bg-brand-500 border-brand-500' : 'bg-elevated border-accented hover:border-brand-400'"
+              class="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-transform duration-150 active:scale-90"
+              :class="selectedKeys.has(bankInv.id) ? 'text-brand-500' : 'text-muted hover:text-brand-400'"
               @click.stop="toggleSelect(bankInv.id)"
             >
               <span
                 v-if="selectedKeys.has(bankInv.id)"
-                class="flex h-full w-full items-center justify-center text-white"
+                class="flex h-6 w-6 items-center justify-center rounded-lg bg-brand-500 text-white shadow-sm"
               >
                 <Icon name="lucide:check" class="h-4 w-4" />
               </span>
@@ -107,17 +118,17 @@
           </span>
         </div>
 
-        <div class="mt-5 flex items-end justify-between border-t border-default/60 pt-3">
+        <div class="mt-4 flex items-end justify-between border-t border-default/60 pt-3 sm:mt-5">
           <div class="flex flex-col">
-            <span class="text-xs font-semibold uppercase tracking-wide text-muted">Mês / Ano</span>
-            <span class="text-sm font-bold text-brand-600 dark:text-brand-500/90">{{ formatMonthYear(bankInv.monthYear) }}</span>
+            <span class="hidden text-xs font-semibold uppercase tracking-wide text-muted sm:block">Mês / Ano</span>
+            <span class="text-base font-bold text-brand-600 dark:text-brand-500/90 sm:text-sm">{{ formatMonthYear(bankInv.monthYear) }}</span>
             <span v-if="bankInv.dueDate" class="text-xs font-semibold text-muted mt-0.5">
               Venc: {{ formatDateShort(bankInv.dueDate) }}
             </span>
           </div>
           <div class="flex flex-col text-right">
-            <span class="text-xs font-semibold uppercase tracking-wide text-muted">Valor da Fatura</span>
-            <span class="text-base font-extrabold text-highlighted">{{ formatMoney(bankInv.totalAmount) }}</span>
+            <span class="hidden text-xs font-semibold uppercase tracking-wide text-muted sm:block">Valor da Fatura</span>
+            <span class="text-base font-extrabold text-highlighted sm:text-base">{{ formatMoney(bankInv.totalAmount) }}</span>
           </div>
         </div>
       </div>
@@ -126,7 +137,7 @@
     <!-- Barra de ações em lote (≥1 seleção) -->
     <div
       v-if="selectedCount > 0"
-      class="fixed inset-x-0 bottom-6 z-40 flex justify-center px-4 pointer-events-none"
+      class="fixed inset-x-0 bottom-20 sm:bottom-6 z-40 flex justify-center px-4 pointer-events-none"
     >
       <div class="pointer-events-auto flex flex-wrap items-center gap-1.5 rounded-2xl border border-default glass-card px-2.5 py-2 shadow-2xl bar-anim">
         <button
@@ -237,8 +248,14 @@ const to = ref(currentMonth)
 
 const selectedBankInvoice = ref<BankInvoice | null>(null)
 
-// Seleção em lote
+// Seleção em lote — modo explícito: checkboxes só aparecem após "Selecionar"
+const selectMode = ref(false)
 const selectedKeys = ref<Set<string>>(new Set())
+
+function toggleSelectMode() {
+  selectMode.value = !selectMode.value
+  if (!selectMode.value) clearSelection()
+}
 const bulkBusy = ref(false)
 const confirmDeleteOpen = ref(false)
 

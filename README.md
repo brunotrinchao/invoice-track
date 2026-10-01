@@ -1,4 +1,4 @@
-# Invoice Track
+# Nossos Cartões
 
 Controle de cartões de crédito e faturas a partir dos PDFs dos bancos. O usuário envia o PDF da fatura; a IA extrai cartões, compras, parcelas, tarifas e créditos; o sistema organiza por cartão/mês, projeta faturas futuras de parcelas, rastreia cobranças recorrentes e gera relatórios e exportações.
 

@@ -1,4 +1,4 @@
-# Design System: SET Learning & Invoice Track Dashboard
+# Design System: SET Learning & Nossos Cartões Dashboard
 **Source Image:** SET Modern Educational Dashboard
 
 ## 1. Visual Theme & Atmosphere

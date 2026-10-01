@@ -88,7 +88,7 @@ async function generateReportText(payload: ExportPayload): Promise<ProviderResul
             'Authorization': `Bearer ${gptKey}`,
             'Content-Type': 'application/json',
             'HTTP-Referer': 'http://localhost:3000',
-            'X-Title': 'Invoice Track',
+            'X-Title': 'Nossos Cartões',
           },
           body: JSON.stringify({
             model,
@@ -234,7 +234,7 @@ function buildHtml(payload: ExportPayload, curvePng: string, bankPng: string, re
       <tbody>${rows}</tbody>
     </table>
 
-    <footer>Invoice Track · Relatório gerado por ${provider === 'local' ? 'módulo local (IA indisponível no momento)' : 'IA (' + provider + ')'}</footer>
+    <footer>Nossos Cartões · Relatório gerado por ${provider === 'local' ? 'módulo local (IA indisponível no momento)' : 'IA (' + provider + ')'}</footer>
   </body></html>`;
 }
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-wrap items-end gap-4 rounded-2xl border border-default bg-elevated p-4 shadow-xs">
+  <div class="flex flex-col items-stretch gap-3.5 sm:flex-row sm:flex-wrap sm:items-end sm:gap-4 rounded-2xl border border-default bg-elevated p-4 shadow-xs">
     <FiltersMultiSelect
       label="Bancos"
       v-model="selectedBanks"
@@ -45,6 +45,11 @@
       class="rounded-xl border border-accented bg-elevated px-3.5 py-2.5 text-xs font-extrabold text-slate-800 dark:text-slate-200 transition-colors hover:bg-slate-200 dark:hover:bg-slate-700 hover:text-slate-950 dark:hover:text-white cursor-pointer"
       @click="clear"
     >Limpar</button>
+
+    <!-- Slot p/ ações extras (ex: exportar) — mobile: full-width; desktop: à direita -->
+    <div class="ml-auto flex items-end w-full sm:w-auto [&>*]:w-full sm:[&>*]:w-auto">
+      <slot />
+    </div>
   </div>
 </template>
 

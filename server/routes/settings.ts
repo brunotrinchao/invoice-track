@@ -93,7 +93,7 @@ async function extractInstructionFromPdf(pdfBuffer: Buffer): Promise<MetaInstruc
               'Authorization': `Bearer ${gptKey}`,
               'Content-Type': 'application/json',
               'HTTP-Referer': 'http://localhost:3000',
-              'X-Title': 'Invoice Track',
+              'X-Title': 'Nossos Cartões',
             },
             body: JSON.stringify({
               model: modelName,

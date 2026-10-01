@@ -101,3 +101,70 @@ html.light .glass-card {
     box-shadow: 0 4px 14px 0 rgba(29, 107, 243, 0.35);
   }
 }
+/* ===== Vue-datepicker — alinhado ao design do app (apple-design) ===== */
+.dp__theme_light {
+  --dp-background-color: #ffffff;
+  --dp-text-color: #0f172a;
+  --dp-border-color: #e2e8f0;
+  --dp-menu-border-color: #e2e8f0;
+  --dp-primary-color: #1d6bf3;
+  --dp-primary-text-color: #ffffff;
+  --dp-hover-color: rgba(29, 107, 243, 0.08);
+  --dp-hover-text-color: #1d6bf3;
+  --dp-icon-color: #94a3b8;
+  --dp-border-radius: 12px;
+  --dp-font-size: 13px;
+  --dp-cell-size: 36px;
+  --dp-animation-duration: 0.18s;
+}
+.dp__theme_dark {
+  --dp-background-color: #0f172a;
+  --dp-text-color: #e2e8f0;
+  --dp-border-color: rgba(255, 255, 255, 0.12);
+  --dp-menu-border-color: rgba(255, 255, 255, 0.12);
+  --dp-primary-color: #3b82f6;
+  --dp-primary-text-color: #ffffff;
+  --dp-hover-color: rgba(59, 130, 246, 0.15);
+  --dp-hover-text-color: #93c5fd;
+  --dp-icon-color: #64748b;
+}
+/* Trigger: mesmo padrão dos selects do FilterBar (bg-elevated, rounded-xl, bold) */
+.dp__input {
+  background: var(--dp-background-color);
+  border: 1px solid var(--dp-border-color);
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  min-height: 42px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.dp__input:focus {
+  outline: none;
+  border-color: #1d6bf3;
+  box-shadow: 0 0 0 2px rgba(29, 107, 243, 0.25);
+}
+.dp__input:hover {
+  border-color: #94a3b8;
+}
+/* Popup: origem no gatilho, material arrive (fade + scale), nunca ease-in */
+.dp__outer_menu,
+.dp__menu {
+  box-shadow: 0 12px 32px -8px rgba(15, 23, 42, 0.25);
+  transform-origin: top left;
+}
+.dp__menu_index {
+  animation: dp-pop 0.18s cubic-bezier(0.23, 1, 0.32, 1);
+}
+@keyframes dp-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(-4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dp__menu_index { animation: none; }
+}
+/* Touch: células ≥40px no mobile */
+@media (max-width: 639px) {
+  .dp__cell_inner, .dp__button { min-width: 40px; min-height: 40px; }
+  .dp__input { min-height: 44px; }
+}

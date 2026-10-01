@@ -11,7 +11,7 @@ function formatMonthLabel(monthYear: string): string {
 export async function buildExcelExport(params: ExportParams): Promise<Buffer> {
   const payload = await collectExportPayload(params);
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'Invoice Track';
+  wb.creator = 'Nossos Cartões';
 
   // Aba 1: base de dados
   const dataSheet = wb.addWorksheet('Parcelas Futuras', { views: [{ state: 'frozen', ySplit: 1 }] });

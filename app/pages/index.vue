@@ -1,23 +1,19 @@
 <template>
   <div class="flex flex-col gap-6">
-    <!-- Global filters + export -->
-    <div class="flex items-end justify-between gap-4">
-      <div class="min-w-0 flex-1">
-        <FiltersFilterBar
-          :banks="banks"
-          :bank-model="selectedBanks"
-          :status-model="selectedStatus"
-          :from="from"
-          :to="to"
-          @update="onFilterUpdate"
-        />
-      </div>
-
+    <!-- Global filters (export dentro do card, em destaque) -->
+    <FiltersFilterBar
+      :banks="banks"
+      :bank-model="selectedBanks"
+      :status-model="selectedStatus"
+      :from="from"
+      :to="to"
+      @update="onFilterUpdate"
+    >
       <!-- Export dropdown (apple-design: scale-in do gatilho, spring 200ms) -->
-      <div ref="exportRoot" class="relative shrink-0">
+      <div ref="exportRoot" class="relative">
         <button
           type="button"
-          class="flex h-[42px] items-center gap-2 rounded-xl border border-accented bg-elevated px-3.5 text-xs font-extrabold text-slate-800 dark:text-slate-200 transition-[background-color,transform] active:scale-[0.97] hover:bg-slate-200 dark:hover:bg-white/5 cursor-pointer"
+          class="flex items-center gap-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 px-4 py-2.5 text-xs font-extrabold !text-white shadow-md shadow-brand-500/25 transition-[background-color,transform] active:scale-[0.97] hover:brightness-110 cursor-pointer"
           aria-haspopup="menu"
           :aria-expanded="exportOpen"
           aria-label="Exportar dashboard"
@@ -69,7 +65,7 @@
         </motion.div>
         </AnimatePresence>
       </div>
-    </div>
+    </FiltersFilterBar>
 
     <!-- Executive KPIs -->
     <motion.div
